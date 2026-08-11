@@ -5,8 +5,38 @@
   const esc = v => String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
   const getUser = () => { try { return JSON.parse(localStorage.getItem("miiverseUser") || "null"); } catch { return null; } };
   const formatDate = v => { try { return new Date(v.replace(" ", "T") + "Z").toLocaleString(); } catch { return v; } };
-  const warningsTab = $("#warningsTab"), profileTab = $("#profileTab"), profile = $("#userProfile"), warnings = $("#warningsView");
 
+  // app.js calls loadPosts(), so keep the feed loader global and available after app.js loads.
+  window.loadPosts = async function loadPosts() {
+    const feed = $("#feed");
+    if (!feed) return;
+    const u = getUser();
+    try {
+      const r = await fetch(`/api/posts?userId=${u ? encodeURIComponent(u.id) : 0}`);
+      if (!r.ok) throw Error(await (async () => { try { const d = await r.json(); return d.error || "Could not load posts."; } catch { return `Could not load posts (HTTP ${r.status}).`; } })());
+      const posts = await r.json();
+      if (!posts.length) {
+        feed.innerHTML = '<div class="post"><div class="postText">No posts yet. Be the first to post!</div></div>';
+        return;
+      }
+      feed.innerHTML = posts.map(post => `
+        <article class="post">
+          <div class="postHeader">
+            <img class="avatar" src="${post.avatar || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='100%25' height='100%25' fill='%23ddd'/%3E%3Ccircle cx='40' cy='32' r='16' fill='%23999'/%3E%3Ccircle cx='40' cy='76' r='25' fill='%23999'/%3E%3C/svg%3E"}" alt="">
+            <div><b>${esc(post.name)}</b><div class="postDate">${formatDate(post.created_at)}</div></div>
+          </div>
+          ${post.text ? `<div class="postText">${esc(post.text).replace(/\n/g, "<br>")}</div>` : ""}
+          ${post.image ? `<img class="postImage" src="${esc(post.image)}" alt="Post image">` : ""}
+          <div class="postActions"><button class="yeahButton" data-id="${post.id}" type="button">${post.yeahed ? "♥" : "♡"} Yeah ${post.yeahs ? `(${post.yeahs})` : ""}</button></div>
+        </article>
+      `).join("");
+    } catch (error) {
+      console.error("Could not load Greenverse posts:", error);
+      feed.innerHTML = `<div class="post"><div class="postText error">Could not load posts: ${esc(error.message)}</div></div>`;
+    }
+  };
+
+  const warningsTab = $("#warningsTab"), profileTab = $("#profileTab"), profile = $("#userProfile"), warnings = $("#warningsView");
   async function renderWarnings() {
     const u = getUser(); if (!u || !warnings) return;
     profile.hidden = true; warnings.hidden = false; profileTab.classList.remove("active"); warningsTab.classList.add("active");
@@ -32,7 +62,7 @@
     drawButton.addEventListener("click",()=>drawModal.hidden=false);$("#closeDraw").addEventListener("click",()=>drawModal.hidden=true);
     $("#clearDrawing").addEventListener("click",()=>{ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);});
     $("#saveDrawing").addEventListener("click",()=>{drawingData=canvas.toDataURL("image/png");const preview=$("#drawingPreview");preview.innerHTML=`<img src="${drawingData}" alt="Drawing preview"><button id="removeDrawing" class="postButton" type="button">Remove Drawing</button>`;preview.hidden=false;$("#removeDrawing").onclick=()=>{drawingData=null;preview.hidden=true;preview.innerHTML="";};drawModal.hidden=true;});
-    $("#postForm").addEventListener("submit",async e=>{if(!drawingData)return;e.preventDefault();const u=getUser();if(!u)return;const fd=new FormData();fd.append("userId",u.id);fd.append("text",$("#postText").value.trim());const blob=await(await fetch(drawingData)).blob();fd.append("image",blob,"greenverse-drawing.png");const r=await fetch("/api/posts",{method:"POST",body:fd}),d=await r.json();if(!r.ok){alert(d.error||"Could not create post.");return;}$("#postText").value="";drawingData=null;$("#drawingPreview").hidden=true;$("#drawingPreview").innerHTML="";$("#counter").textContent="0 / 500";location.reload();},true);
+    $("#postForm").addEventListener("submit",async e=>{if(!drawingData)return;e.preventDefault();const u=getUser();if(!u)return;const fd=new FormData();fd.append("userId",u.id);fd.append("text",$("#postText").value.trim());const blob=await(await fetch(drawingData)).blob();fd.append("image",blob,"greenverse-drawing.png");const r=await fetch("/api/posts",{method:"POST",body:fd}),d=await r.json();if(!r.ok){alert(d.error||"Could not create post.");return;}$("#postText").value="";drawingData=null;$("#drawingPreview").hidden=true;$("#drawingPreview").innerHTML="";$("#counter").textContent="0 / 500";await loadPosts();},true);
   }
   setInterval(()=>{if(warningsMode&&$("#userMenuView")&&!$("#userMenuView").hidden)renderWarnings();},1000);
 })();
