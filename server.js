@@ -6,6 +6,7 @@ const Database = require("better-sqlite3");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const ADMIN_USERNAME = String(process.env.ADMIN_USERNAME || "test").trim();
 const dataDir = path.join(__dirname, "data");
 const uploadDir = path.join(__dirname, "uploads");
 const publicDir = path.join(__dirname, "public");
@@ -63,15 +64,12 @@ const upload = multer({
   }
 });
 
-// Phase 1 account creation: intentionally passwordless.
 app.post("/api/users", upload.single("avatar"), (req, res) => {
   try {
     const name = String(req.body.name || "").trim().slice(0, 24);
     if (!name) return res.status(400).json({ error: "A name is required." });
-
     const existing = db.prepare("SELECT id FROM users WHERE name = ? COLLATE NOCASE").get(name);
     if (existing) return res.status(409).json({ error: "That GreenTendo name is already in use. Try logging in instead." });
-
     const avatar = req.file ? `/uploads/${req.file.filename}` : null;
     const result = db.prepare("INSERT INTO users (name, avatar) VALUES (?, ?)").run(name, avatar);
     res.json({ id: Number(result.lastInsertRowid), name, avatar });
@@ -81,16 +79,13 @@ app.post("/api/users", upload.single("avatar"), (req, res) => {
   }
 });
 
-// Phase 1 passwordless login: sign out locally, then sign back in with the account name.
 app.post("/api/login", (req, res) => {
   try {
     const name = String(req.body.name || "").trim().slice(0, 24);
     if (!name) return res.status(400).json({ error: "Enter your GreenTendo name." });
-
     const matches = db.prepare("SELECT id, name, avatar FROM users WHERE name = ? COLLATE NOCASE").all(name);
     if (matches.length === 0) return res.status(404).json({ error: "No GreenTendo account was found with that name." });
     if (matches.length > 1) return res.status(409).json({ error: "More than one old account has that name. This name cannot be used for passwordless login." });
-
     res.json(matches[0]);
   } catch (error) {
     console.error("Login error:", error);
@@ -109,6 +104,33 @@ app.get("/api/users/:id", (req, res) => {
     console.error("Get user error:", error);
     res.status(500).json({ error: "Could not load user." });
   }
+});
+
+function getUser(userId) {
+  return db.prepare("SELECT id, name, avatar FROM users WHERE id = ?").get(userId);
+}
+
+function isAdmin(userId) {
+  const user = getUser(userId);
+  return Boolean(user && user.name.toLowerCase() === ADMIN_USERNAME.toLowerCase());
+}
+
+// Phase 1 admin panel. Authentication remains passwordless until Phase 1 Day 3.
+app.get("/api/admin/status", (req, res) => {
+  const userId = Number(req.query.userId);
+  res.json({ admin: Number.isInteger(userId) && userId > 0 && isAdmin(userId) });
+});
+
+app.get("/api/admin/stats", (req, res) => {
+  const userId = Number(req.query.userId);
+  if (!Number.isInteger(userId) || userId <= 0 || !isAdmin(userId)) {
+    return res.status(403).json({ error: "Admin access required." });
+  }
+
+  const users = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
+  const posts = db.prepare("SELECT COUNT(*) AS count FROM posts").get().count;
+  const yeahs = db.prepare("SELECT COUNT(*) AS count FROM post_yeahs").get().count;
+  res.json({ users, posts, yeahs });
 });
 
 app.get("/api/posts", (req, res) => {
@@ -140,8 +162,7 @@ app.post("/api/posts", (req, res) => {
     const text = String(req.body.text || "").trim().slice(0, 500);
     if (!Number.isInteger(userId) || userId <= 0) return res.status(400).json({ error: "Invalid user ID." });
     if (!text) return res.status(400).json({ error: "Post cannot be empty." });
-    const user = db.prepare("SELECT id FROM users WHERE id = ?").get(userId);
-    if (!user) return res.status(404).json({ error: "User not found." });
+    if (!getUser(userId)) return res.status(404).json({ error: "User not found." });
     const result = db.prepare("INSERT INTO posts (user_id, text) VALUES (?, ?)").run(userId, text);
     res.json({ id: Number(result.lastInsertRowid) });
   } catch (error) {
@@ -157,7 +178,7 @@ app.post("/api/posts/:id/yeah", (req, res) => {
     if (!Number.isInteger(postId) || postId <= 0) return res.status(400).json({ error: "Invalid post ID." });
     if (!Number.isInteger(userId) || userId <= 0) return res.status(400).json({ error: "Invalid user ID." });
     if (!db.prepare("SELECT id FROM posts WHERE id = ?").get(postId)) return res.status(404).json({ error: "Post not found." });
-    if (!db.prepare("SELECT id FROM users WHERE id = ?").get(userId)) return res.status(404).json({ error: "User not found." });
+    if (!getUser(userId)) return res.status(404).json({ error: "User not found." });
 
     const existing = db.prepare("SELECT post_id, user_id FROM post_yeahs WHERE post_id = ? AND user_id = ?").get(postId, userId);
     if (existing) {
