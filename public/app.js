@@ -36,11 +36,6 @@ function getAvatar(url) {
   return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='100%25' height='100%25' fill='%23ddd'/%3E%3Ccircle cx='40' cy='32' r='16' fill='%23999'/%3E%3Ccircle cx='40' cy='76' r='25' fill='%23999'/%3E%3C/svg%3E";
 }
 
-function formatDate(value) {
-  try { return new Date(value.replace(" ", "T") + "Z").toLocaleString(); }
-  catch { return value; }
-}
-
 async function getResponseError(response, fallback) {
   const contentType = response.headers.get("content-type") || "";
   try {
@@ -60,7 +55,6 @@ function showAccountChoice() {
   loginForm.hidden = true;
   userForm.hidden = true;
 }
-
 function showLoginForm() {
   accountChoice.hidden = true;
   loginForm.hidden = false;
@@ -68,7 +62,6 @@ function showLoginForm() {
   document.querySelector("#loginError").textContent = "";
   document.querySelector("#loginName").focus();
 }
-
 function showCreateForm() {
   accountChoice.hidden = true;
   loginForm.hidden = true;
@@ -103,14 +96,9 @@ function renderUser() {
     showAccountChoice();
     return;
   }
-
   setup.style.display = "none";
   changeUserButton.textContent = "Log Out";
-  userCard.innerHTML = `
-    <img class="avatar" src="${getAvatar(currentUser.avatar)}" alt="">
-    <b>${escapeHtml(currentUser.name)}</b>
-    <div class="postDate">Signed in</div>
-  `;
+  userCard.innerHTML = `<img class="avatar" src="${getAvatar(currentUser.avatar)}" alt=""><b>${escapeHtml(currentUser.name)}</b><div class="postDate">Signed in</div>`;
 }
 
 function showCommunity() {
@@ -130,7 +118,6 @@ function showCommunity() {
 
 async function showUserMenu() {
   if (!currentUser) return renderUser();
-
   communitiesNav.classList.remove("active");
   userMenuNav.classList.add("active");
   adminNav.classList.remove("active");
@@ -140,41 +127,11 @@ async function showUserMenu() {
   adminView.hidden = true;
   sectionLabel.textContent = "USER MENU";
   pageHeading.textContent = "User Menu";
-
-  userProfile.innerHTML = `
-    <div class="profileHero">
-      <img class="profileAvatar" src="${getAvatar(currentUser.avatar)}" alt="">
-      <h2>${escapeHtml(currentUser.name)}</h2>
-      <p>Greenverse user #${currentUser.id}</p>
-    </div>
-    <div class="profileStats" id="profileStats">
-      <div class="stat"><strong>—</strong><span>Posts made</span></div>
-      <div class="stat"><strong>—</strong><span>Yeahs received</span></div>
-      <div class="stat"><strong>—</strong><span>Yeahs given</span></div>
-    </div>
-  `;
-
-  try {
-    const response = await fetch(`/api/posts?userId=${currentUser.id}`);
-    if (!response.ok) throw new Error(await getResponseError(response, "Could not load statistics."));
-    const posts = await response.json();
-    const myPosts = posts.filter(post => Number(post.user_id) === Number(currentUser.id));
-    const postsMade = myPosts.length;
-    const yeahsReceived = myPosts.reduce((total, post) => total + Number(post.yeahs || 0), 0);
-    const yeahsGiven = posts.reduce((total, post) => total + (post.yeahed ? 1 : 0), 0);
-    document.querySelector("#profileStats").innerHTML = `
-      <div class="stat"><strong>${postsMade}</strong><span>Posts made</span></div>
-      <div class="stat"><strong>${yeahsReceived}</strong><span>Yeahs received</span></div>
-      <div class="stat"><strong>${yeahsGiven}</strong><span>Yeahs given</span></div>
-    `;
-  } catch (error) {
-    console.error("Could not load user statistics:", error);
-  }
+  userProfile.innerHTML = `<div class="profileHero"><img class="profileAvatar" src="${getAvatar(currentUser.avatar)}" alt=""><h2>${escapeHtml(currentUser.name)}</h2><p>Greenverse user #${currentUser.id}</p></div><div class="profileStats" id="profileStats"><div class="stat"><strong>—</strong><span>Posts made</span></div><div class="stat"><strong>—</strong><span>Yeahs received</span></div><div class="stat"><strong>—</strong><span>Yeahs given</span></div></div>`;
 }
 
 async function showAdminPanel() {
   if (!currentUser || !isAdmin) return showCommunity();
-
   communitiesNav.classList.remove("active");
   userMenuNav.classList.remove("active");
   adminNav.classList.add("active");
@@ -184,31 +141,7 @@ async function showAdminPanel() {
   adminView.hidden = false;
   sectionLabel.textContent = "ADMIN";
   pageHeading.textContent = "Admin Panel";
-
-  adminPanel.innerHTML = `
-    <div class="profileHero">
-      <h2>Greenverse Admin</h2>
-      <p>Signed in as ${escapeHtml(currentUser.name)}</p>
-    </div>
-    <div class="profileStats" id="adminStats">
-      <div class="stat"><strong>—</strong><span>Accounts</span></div>
-      <div class="stat"><strong>—</strong><span>Posts</span></div>
-      <div class="stat"><strong>—</strong><span>Yeahs</span></div>
-    </div>
-  `;
-
-  try {
-    const response = await fetch(`/api/admin/stats?userId=${currentUser.id}`);
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Admin access denied.");
-    document.querySelector("#adminStats").innerHTML = `
-      <div class="stat"><strong>${data.users}</strong><span>Accounts</span></div>
-      <div class="stat"><strong>${data.posts}</strong><span>Posts</span></div>
-      <div class="stat"><strong>${data.yeahs}</strong><span>Yeahs</span></div>
-    `;
-  } catch (error) {
-    adminPanel.innerHTML += `<p class="error">${escapeHtml(error.message)}</p>`;
-  }
+  adminPanel.innerHTML = `<div class="profileHero"><h2>Greenverse Admin</h2><p>Signed in as ${escapeHtml(currentUser.name)}</p></div>`;
 }
 
 loginForm.addEventListener("submit", async event => {
@@ -216,25 +149,14 @@ loginForm.addEventListener("submit", async event => {
   const errorElement = document.querySelector("#loginError");
   errorElement.textContent = "";
   try {
-    const response = await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: document.querySelector("#loginName").value.trim() })
-    });
-    if (!response.ok) {
-      errorElement.textContent = await getResponseError(response, "Could not log in.");
-      return;
-    }
-    const data = await response.json();
-    currentUser = data;
+    const response = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: document.querySelector("#loginName").value.trim() }) });
+    if (!response.ok) { errorElement.textContent = await getResponseError(response, "Could not log in."); return; }
+    currentUser = await response.json();
     localStorage.setItem("miiverseUser", JSON.stringify(currentUser));
     renderUser();
     await checkAdmin();
     await loadPosts();
-  } catch (error) {
-    console.error(error);
-    errorElement.textContent = "Could not connect to the server.";
-  }
+  } catch (error) { console.error(error); errorElement.textContent = "Could not connect to the server."; }
 });
 
 userForm.addEventListener("submit", async event => {
@@ -244,22 +166,16 @@ userForm.addEventListener("submit", async event => {
   errorElement.textContent = "";
   try {
     const response = await fetch("/api/users", { method: "POST", body: form });
-    if (!response.ok) {
-      errorElement.textContent = await getResponseError(response, "Could not create account.");
-      return;
-    }
-    const data = await response.json();
-    currentUser = data;
+    if (!response.ok) { errorElement.textContent = await getResponseError(response, "Could not create account."); return; }
+    currentUser = await response.json();
     localStorage.setItem("miiverseUser", JSON.stringify(currentUser));
     renderUser();
     await checkAdmin();
     await loadPosts();
-  } catch (error) {
-    console.error(error);
-    errorElement.textContent = "Could not connect to the server.";
-  }
+  } catch (error) { console.error(error); errorElement.textContent = "Could not connect to the server."; }
 });
 
+// /api/posts uses multer, so send FormData rather than JSON.
 postForm.addEventListener("submit", async event => {
   event.preventDefault();
   if (!currentUser) return renderUser();
@@ -267,12 +183,17 @@ postForm.addEventListener("submit", async event => {
   if (!text) return;
 
   try {
-    const response = await fetch("/api/posts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: currentUser.id, text })
-    });
+    const form = new FormData();
+    form.append("userId", String(currentUser.id));
+    form.append("text", text);
 
+    // If the post form has an image/file input, include it when selected.
+    const imageInput = postForm.querySelector('input[type="file"]');
+    if (imageInput && imageInput.files && imageInput.files[0]) {
+      form.append("image", imageInput.files[0]);
+    }
+
+    const response = await fetch("/api/posts", { method: "POST", body: form });
     if (!response.ok) {
       const message = await getResponseError(response, "Could not create post.");
       console.error("Greenverse post request failed:", response.status, message);
@@ -283,6 +204,7 @@ postForm.addEventListener("submit", async event => {
     if (!data.id) return alert("The server did not confirm the post was created.");
     postText.value = "";
     counter.textContent = "0 / 500";
+    if (imageInput) imageInput.value = "";
     await loadPosts();
   } catch (error) {
     console.error("Greenverse post request failed:", error);
@@ -292,26 +214,6 @@ postForm.addEventListener("submit", async event => {
 
 postText.addEventListener("input", () => { counter.textContent = `${postText.value.length} / 500`; });
 
-feed.addEventListener("click", async event => {
-  const button = event.target.closest(".yeahButton");
-  if (!button) return;
-  if (!currentUser) return renderUser();
-  try {
-    button.disabled = true;
-    const response = await fetch(`/api/posts/${button.dataset.id}/yeah`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: currentUser.id })
-    });
-    if (!response.ok) return alert(await getResponseError(response, "Could not change Yeah status."));
-    await response.json();
-    await loadPosts();
-  } catch (error) {
-    console.error(error);
-    alert("Could not connect to the server.");
-  }
-});
-
 document.querySelector("#showLogin").addEventListener("click", showLoginForm);
 document.querySelector("#showCreate").addEventListener("click", showCreateForm);
 document.querySelector("#backToChoiceFromLogin").addEventListener("click", showAccountChoice);
@@ -320,7 +222,6 @@ communitiesNav.addEventListener("click", showCommunity);
 miiverseGeneralButton.addEventListener("click", showCommunity);
 userMenuNav.addEventListener("click", showUserMenu);
 adminNav.addEventListener("click", showAdminPanel);
-
 changeUserButton.addEventListener("click", () => {
   if (!currentUser) return showLoginForm();
   localStorage.removeItem("miiverseUser");
@@ -330,15 +231,5 @@ changeUserButton.addEventListener("click", () => {
 });
 
 renderUser();
-if (currentUser) {
-  checkAdmin().then(() => showCommunity());
-} else {
-  showAccountChoice();
-}
-
-setInterval(() => {
-  if (!currentUser) return;
-  if (!userMenuView.hidden) showUserMenu();
-  else if (!adminView.hidden) return;
-  else if (!communityView.hidden) loadPosts();
-}, 5000);
+if (currentUser) checkAdmin().then(() => showCommunity());
+else showAccountChoice();
