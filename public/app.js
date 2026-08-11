@@ -197,34 +197,6 @@ async function showAdminPanel() {
   }
 }
 
-async function loadPosts() {
-  if (!currentUser) return;
-  try {
-    const response = await fetch(`/api/posts?userId=${currentUser.id}`);
-    if (!response.ok) throw new Error("Could not load posts.");
-    const posts = await response.json();
-    if (!posts.length) {
-      feed.innerHTML = `<div class="post"><div class="postText">No posts yet. Be the first person to post something!</div></div>`;
-      return;
-    }
-    feed.innerHTML = posts.map(post => {
-      const buttonText = post.yeahed ? "Unyeah" : "Yeah!";
-      const activeClass = post.yeahed ? " yeahActive" : "";
-      return `
-        <article class="post">
-          <div class="postHeader">
-            <img class="avatar" src="${getAvatar(post.avatar)}" alt="">
-            <div><div class="postName">${escapeHtml(post.name)}</div><div class="postDate">${formatDate(post.created_at)}</div></div>
-          </div>
-          <div class="postText">${escapeHtml(post.text)}</div>
-          <button class="yeahButton${activeClass}" data-id="${post.id}">${buttonText} ${post.yeahs}</button>
-        </article>`;
-    }).join("");
-  } catch (error) {
-    console.error("Could not load posts:", error);
-  }
-}
-
 loginForm.addEventListener("submit", async event => {
   event.preventDefault();
   const errorElement = document.querySelector("#loginError");
@@ -342,9 +314,14 @@ if (currentUser) {
   showAccountChoice();
 }
 
+// Refresh normal pages every 5 seconds. The admin panel is intentionally
+// excluded because moderation.js owns its authenticated admin session and
+// refreshes its own data. Calling showAdminPanel() here would bypass the
+// admin password header and replace the working moderation panel with an
+// unauthenticated request every 5 seconds.
 setInterval(() => {
   if (!currentUser) return;
   if (!userMenuView.hidden) showUserMenu();
-  else if (!adminView.hidden && isAdmin) showAdminPanel();
+  else if (!adminView.hidden) return;
   else if (!communityView.hidden) loadPosts();
 }, 5000);
