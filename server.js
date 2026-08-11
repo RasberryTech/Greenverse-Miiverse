@@ -2,11 +2,15 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const Database = require("better-sqlite3");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_USERNAME = String(process.env.ADMIN_USERNAME || "test").trim();
+// Password is intentionally kept server-side as a SHA-256 hash.
+// Change ADMIN_PASSWORD_HASH in your hosting environment for production.
+const ADMIN_PASSWORD_HASH = String(process.env.ADMIN_PASSWORD_HASH || "9a0e5c8c8b7e7a5e7a9f7f0f5a6d4b0c4f2a5f5b2d5c8a0c9b6a3d1e7f4c2b8").trim();
 const dataDir = path.join(__dirname, "data");
 const uploadDir = path.join(__dirname, "uploads");
 const publicDir = path.join(__dirname, "public");
@@ -115,7 +119,22 @@ function isAdmin(userId) {
   return Boolean(user && user.name.toLowerCase() === ADMIN_USERNAME.toLowerCase());
 }
 
-// Phase 1 admin panel. Authentication remains passwordless until Phase 1 Day 3.
+function passwordMatches(password) {
+  const supplied = crypto.createHash("sha256").update(String(password || "")).digest("hex");
+  return supplied === ADMIN_PASSWORD_HASH;
+}
+
+app.post("/api/admin/login", (req, res) => {
+  const userId = Number(req.body.userId);
+  if (!Number.isInteger(userId) || userId <= 0 || !isAdmin(userId)) {
+    return res.status(403).json({ error: "Admin access required." });
+  }
+  if (!passwordMatches(req.body.password)) {
+    return res.status(401).json({ error: "Incorrect admin password." });
+  }
+  res.json({ admin: true });
+});
+
 app.get("/api/admin/status", (req, res) => {
   const userId = Number(req.query.userId);
   res.json({ admin: Number.isInteger(userId) && userId > 0 && isAdmin(userId) });
@@ -123,7 +142,8 @@ app.get("/api/admin/status", (req, res) => {
 
 app.get("/api/admin/stats", (req, res) => {
   const userId = Number(req.query.userId);
-  if (!Number.isInteger(userId) || userId <= 0 || !isAdmin(userId)) {
+  const adminPassword = String(req.headers["x-admin-password"] || "");
+  if (!Number.isInteger(userId) || userId <= 0 || !isAdmin(userId) || !passwordMatches(adminPassword)) {
     return res.status(403).json({ error: "Admin access required." });
   }
 
