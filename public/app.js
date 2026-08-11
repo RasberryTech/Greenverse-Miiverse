@@ -10,16 +10,20 @@ const changeUserButton = document.querySelector("#changeUser");
 const communitiesNav = document.querySelector("#communitiesNav");
 const userMenuNav = document.querySelector("#userMenuNav");
 const communityList = document.querySelector("#communityList");
-const miiverseGeneralButton = document.querySelector("#miiverseGeneralButton");
 const communityView = document.querySelector("#communityView");
 const userMenuView = document.querySelector("#userMenuView");
 const userProfile = document.querySelector("#userProfile");
 const pageHeading = document.querySelector("#pageHeading");
 const sectionLabel = document.querySelector("#sectionLabel");
+const miiverseGeneralButton = document.querySelector("#miiverseGeneralButton");
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, character => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;"
   }[character]));
 }
 
@@ -57,56 +61,61 @@ function showCommunity() {
   communityList.hidden = false;
   communityView.hidden = false;
   userMenuView.hidden = true;
-  miiverseGeneralButton.classList.add("active");
   sectionLabel.textContent = "COMMUNITY";
   pageHeading.textContent = "Miiverse General";
+  miiverseGeneralButton.classList.add("active");
   loadPosts();
 }
 
-function showUserMenu() {
+async function showUserMenu() {
+  if (!currentUser) {
+    renderUser();
+    return;
+  }
+
   communitiesNav.classList.remove("active");
   userMenuNav.classList.add("active");
   communityList.hidden = true;
   communityView.hidden = true;
   userMenuView.hidden = false;
   sectionLabel.textContent = "USER MENU";
-  pageHeading.textContent = currentUser ? currentUser.name : "User Menu";
-  renderUserMenu();
-}
-
-async function renderUserMenu() {
-  if (!currentUser) {
-    userProfile.innerHTML = "<div class='post'><div class='postText'>Sign in to view your User Menu.</div></div>";
-    return;
-  }
+  pageHeading.textContent = "User Menu";
 
   userProfile.innerHTML = `
     <div class="profileHero">
       <img class="profileAvatar" src="${getAvatar(currentUser.avatar)}" alt="">
       <h2>${escapeHtml(currentUser.name)}</h2>
-      <p>Your Greenverse profile</p>
+      <p>Greenverse user #${currentUser.id}</p>
     </div>
-    <div class="profileStats">
-      <div class="profileStat"><strong id="postStat">—</strong><span>Posts made</span></div>
-      <div class="profileStat"><strong id="receivedStat">—</strong><span>Yeahs on your posts</span></div>
-      <div class="profileStat"><strong id="givenStat">—</strong><span>Yeahs given</span></div>
+    <div class="profileStats" id="profileStats">
+      <div class="stat"><strong>—</strong><span>Posts made</span></div>
+      <div class="stat"><strong>—</strong><span>Yeahs received</span></div>
+      <div class="stat"><strong>—</strong><span>Yeahs given</span></div>
     </div>
   `;
 
   try {
-    const response = await fetch(`/api/users/${currentUser.id}/stats`);
-    if (!response.ok) return;
-    const stats = await response.json();
-    document.querySelector("#postStat").textContent = stats.posts;
-    document.querySelector("#receivedStat").textContent = stats.yeahsReceived;
-    document.querySelector("#givenStat").textContent = stats.yeahsGiven;
+    const response = await fetch(`/api/posts?userId=${currentUser.id}`);
+    if (!response.ok) throw new Error("Could not load statistics.");
+    const posts = await response.json();
+
+    const myPosts = posts.filter(post => Number(post.user_id) === Number(currentUser.id));
+    const postsMade = myPosts.length;
+    const yeahsReceived = myPosts.reduce((total, post) => total + Number(post.yeahs || 0), 0);
+    const yeahsGiven = posts.reduce((total, post) => total + (post.yeahed ? 1 : 0), 0);
+
+    const stats = document.querySelector("#profileStats");
+    stats.innerHTML = `
+      <div class="stat"><strong>${postsMade}</strong><span>Posts made</span></div>
+      <div class="stat"><strong>${yeahsReceived}</strong><span>Yeahs received</span></div>
+      <div class="stat"><strong>${yeahsGiven}</strong><span>Yeahs given</span></div>
+    `;
   } catch (error) {
-    console.error("Could not load user stats:", error);
+    console.error("Could not load user statistics:", error);
   }
 }
 
 async function loadPosts() {
-  if (userMenuView.hidden === false) return;
   try {
     const userId = currentUser ? currentUser.id : 0;
     const response = await fetch(`/api/posts?userId=${userId}`);
@@ -156,7 +165,7 @@ document.querySelector("#userForm").addEventListener("submit", async event => {
     currentUser = data;
     localStorage.setItem("miiverseUser", JSON.stringify(currentUser));
     renderUser();
-    showCommunity();
+    await loadPosts();
   } catch (error) {
     console.error(error);
     errorElement.textContent = "Could not connect to the server.";
@@ -224,16 +233,20 @@ feed.addEventListener("click", async event => {
 });
 
 communitiesNav.addEventListener("click", showCommunity);
-userMenuNav.addEventListener("click", showUserMenu);
 miiverseGeneralButton.addEventListener("click", showCommunity);
+userMenuNav.addEventListener("click", showUserMenu);
 
 changeUserButton.addEventListener("click", () => {
   localStorage.removeItem("miiverseUser");
   currentUser = null;
   renderUser();
-  showCommunity();
+  loadPosts();
 });
 
 renderUser();
 showCommunity();
-setInterval(loadPosts, 5000);
+
+setInterval(() => {
+  if (!userMenuView.hidden) showUserMenu();
+  else loadPosts();
+}, 5000);
