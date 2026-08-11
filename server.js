@@ -5,45 +5,27 @@ const fs = require("fs");
 const Database = require("better-sqlite3");
 
 const app = express();
+
 const PORT = process.env.PORT || 3000;
 
 
 /*
 ==================================================
-STORAGE
+DIRECTORIES
 ==================================================
 */
 
-const persistentDir =
-  process.env.PERSISTENT_DIR ||
-  __dirname;
+const dataDir = path.join(__dirname, "data");
+const uploadDir = path.join(__dirname, "uploads");
+const publicDir = path.join(__dirname, "public");
 
-const dataDir =
-  path.join(
-    persistentDir,
-    "data"
-  );
+fs.mkdirSync(dataDir, {
+  recursive: true
+});
 
-const uploadDir =
-  path.join(
-    persistentDir,
-    "uploads"
-  );
-
-
-fs.mkdirSync(
-  dataDir,
-  {
-    recursive: true
-  }
-);
-
-fs.mkdirSync(
-  uploadDir,
-  {
-    recursive: true
-  }
-);
+fs.mkdirSync(uploadDir, {
+  recursive: true
+});
 
 
 /*
@@ -52,21 +34,14 @@ DATABASE
 ==================================================
 */
 
-const dbPath =
-  path.join(
-    dataDir,
-    "miiverse.sqlite"
-  );
-
-const db =
-  new Database(
-    dbPath
-  );
-
-
-db.pragma(
-  "journal_mode = WAL"
+const dbPath = path.join(
+  dataDir,
+  "miiverse.sqlite"
 );
+
+const db = new Database(dbPath);
+
+db.pragma("journal_mode = WAL");
 
 
 /*
@@ -88,7 +63,6 @@ db.exec(`
       DEFAULT CURRENT_TIMESTAMP
   );
 
-
   CREATE TABLE IF NOT EXISTS posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
@@ -103,7 +77,6 @@ db.exec(`
     FOREIGN KEY (user_id)
       REFERENCES users(id)
   );
-
 
   CREATE TABLE IF NOT EXISTS post_yeahs (
     post_id INTEGER NOT NULL,
@@ -138,7 +111,6 @@ app.use(
   })
 );
 
-
 app.use(
   express.urlencoded({
     extended: true
@@ -152,19 +124,52 @@ STATIC WEBSITE
 ==================================================
 */
 
+console.log(
+  "Public directory:",
+  publicDir
+);
+
+console.log(
+  "Index exists:",
+  fs.existsSync(
+    path.join(
+      publicDir,
+      "index.html"
+    )
+  )
+);
+
 app.use(
   express.static(
-    path.join(
-      __dirname,
-      "public"
-    )
+    publicDir
   )
 );
 
 
 /*
 ==================================================
-PERSISTENT UPLOADS
+HOMEPAGE
+==================================================
+*/
+
+app.get(
+  "/",
+  (req, res) => {
+
+    res.sendFile(
+      path.join(
+        publicDir,
+        "index.html"
+      )
+    );
+
+  }
+);
+
+
+/*
+==================================================
+UPLOADS
 ==================================================
 */
 
@@ -182,68 +187,79 @@ MULTER
 ==================================================
 */
 
+const storage =
+  multer.diskStorage({
+
+    destination:
+      function (
+        req,
+        file,
+        callback
+      ) {
+
+        callback(
+          null,
+          uploadDir
+        );
+
+      },
+
+    filename:
+      function (
+        req,
+        file,
+        callback
+      ) {
+
+        const extension =
+          path
+            .extname(
+              file.originalname
+            )
+            .toLowerCase();
+
+        const filename =
+          `${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2)}${extension}`;
+
+        callback(
+          null,
+          filename
+        );
+
+      }
+
+  });
+
+
 const upload =
   multer({
 
-    storage:
-      multer.diskStorage({
-
-        destination:
-          uploadDir,
-
-        filename:
-          (req, file, callback) => {
-
-            const extension =
-              path
-                .extname(
-                  file.originalname
-                )
-                .toLowerCase();
-
-
-            const filename =
-              `${Date.now()}-${Math.random()
-                .toString(36)
-                .slice(2)}${extension}`;
-
-
-            callback(
-              null,
-              filename
-            );
-
-          }
-
-      }),
-
+    storage: storage,
 
     limits: {
-
       fileSize:
         2 * 1024 * 1024
-
     },
 
-
     fileFilter:
-      (req, file, callback) => {
+      function (
+        req,
+        file,
+        callback
+      ) {
 
-        const allowedTypes = [
-
-          "image/png",
-
-          "image/jpeg",
-
-          "image/webp",
-
-          "image/gif"
-
-        ];
-
+        const allowed =
+          [
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "image/gif"
+          ];
 
         if (
-          allowedTypes.includes(
+          allowed.includes(
             file.mimetype
           )
         ) {
@@ -299,17 +315,14 @@ app.post(
         return res
           .status(400)
           .json({
-
             error:
               "A name is required."
-
           });
 
       }
 
 
-      let avatar =
-        null;
+      let avatar = null;
 
 
       if (req.file) {
@@ -338,16 +351,12 @@ app.post(
           );
 
 
-      const userId =
-        Number(
-          result.lastInsertRowid
-        );
-
-
       res.json({
 
         id:
-          userId,
+          Number(
+            result.lastInsertRowid
+          ),
 
         name:
           name,
@@ -364,14 +373,11 @@ app.post(
         error
       );
 
-
       res
         .status(500)
         .json({
-
           error:
             "Could not create user."
-
         });
 
     }
@@ -409,10 +415,8 @@ app.get(
         return res
           .status(400)
           .json({
-
             error:
               "Invalid user ID."
-
           });
 
       }
@@ -441,10 +445,8 @@ app.get(
         return res
           .status(404)
           .json({
-
             error:
               "User not found."
-
           });
 
       }
@@ -461,14 +463,11 @@ app.get(
         error
       );
 
-
       res
         .status(500)
         .json({
-
           error:
             "Could not load user."
-
         });
 
     }
@@ -507,14 +506,12 @@ app.get(
 
               posts.created_at,
 
-
               users.id
                 AS user_id,
 
               users.name,
 
               users.avatar,
-
 
               (
                 SELECT COUNT(*)
@@ -526,7 +523,6 @@ app.get(
                   posts.id
 
               ) AS yeahs,
-
 
               CASE
 
@@ -552,20 +548,14 @@ app.get(
 
               END AS yeahed
 
-
             FROM posts
 
-
             JOIN users
-
-              ON
-                users.id =
-                posts.user_id
-
+              ON users.id =
+                 posts.user_id
 
             ORDER BY
               posts.id DESC
-
 
             LIMIT 100
           `)
@@ -585,14 +575,11 @@ app.get(
         error
       );
 
-
       res
         .status(500)
         .json({
-
           error:
             "Could not load posts."
-
         });
 
     }
@@ -641,10 +628,8 @@ app.post(
         return res
           .status(400)
           .json({
-
             error:
               "Invalid user ID."
-
           });
 
       }
@@ -655,10 +640,8 @@ app.post(
         return res
           .status(400)
           .json({
-
             error:
               "Post cannot be empty."
-
           });
 
       }
@@ -683,10 +666,8 @@ app.post(
         return res
           .status(404)
           .json({
-
             error:
               "User not found."
-
           });
 
       }
@@ -726,14 +707,11 @@ app.post(
         error
       );
 
-
       res
         .status(500)
         .json({
-
           error:
             "Could not create post."
-
         });
 
     }
@@ -777,10 +755,8 @@ app.post(
         return res
           .status(400)
           .json({
-
             error:
               "Invalid post ID."
-
           });
 
       }
@@ -796,10 +772,8 @@ app.post(
         return res
           .status(400)
           .json({
-
             error:
               "Invalid user ID."
-
           });
 
       }
@@ -824,10 +798,8 @@ app.post(
         return res
           .status(404)
           .json({
-
             error:
               "Post not found."
-
           });
 
       }
@@ -852,10 +824,8 @@ app.post(
         return res
           .status(404)
           .json({
-
             error:
               "User not found."
-
           });
 
       }
@@ -883,9 +853,7 @@ app.post(
 
 
       /*
-      --------------------------------------------
       UNYEAH
-      --------------------------------------------
       */
 
       if (existing) {
@@ -936,9 +904,7 @@ app.post(
 
 
       /*
-      --------------------------------------------
       YEAH
-      --------------------------------------------
       */
 
       db
@@ -986,60 +952,16 @@ app.post(
 
     } catch (error) {
 
-      /*
-      A duplicate Yeah is prevented
-      by PRIMARY KEY(post_id,user_id).
-      */
-
-      if (
-        error.code ===
-        "SQLITE_CONSTRAINT_PRIMARYKEY"
-      ) {
-
-        const result =
-          db
-            .prepare(`
-              SELECT
-                COUNT(*) AS yeahs
-
-              FROM post_yeahs
-
-              WHERE
-                post_id = ?
-            `)
-            .get(
-              Number(
-                req.params.id
-              )
-            );
-
-
-        return res.json({
-
-          yeahed:
-            true,
-
-          yeahs:
-            result.yeahs
-
-        });
-
-      }
-
-
       console.error(
         "Yeah error:",
         error
       );
 
-
       res
         .status(500)
         .json({
-
           error:
             "Could not change Yeah status."
-
         });
 
     }
@@ -1050,72 +972,7 @@ app.post(
 
 /*
 ==================================================
-RESET YEAHS
-==================================================
-
-DEVELOPMENT ONLY.
-
-Don't expose this publicly once
-the site is live.
-==================================================
-*/
-
-if (
-  process.env.ENABLE_DEV_RESET ===
-  "true"
-) {
-
-  app.post(
-    "/api/admin/reset-yeahs",
-
-    (req, res) => {
-
-      try {
-
-        db
-          .prepare(`
-            DELETE FROM post_yeahs
-          `)
-          .run();
-
-
-        res.json({
-
-          success:
-            true,
-
-          message:
-            "All Yeahs have been reset."
-
-        });
-
-      } catch (error) {
-
-        console.error(
-          error
-        );
-
-
-        res
-          .status(500)
-          .json({
-
-            error:
-              "Could not reset Yeahs."
-
-          });
-
-      }
-
-    }
-  );
-
-}
-
-
-/*
-==================================================
-MULTER / GENERAL ERROR HANDLER
+ERROR HANDLER
 ==================================================
 */
 
@@ -1140,10 +997,8 @@ app.use(
       return res
         .status(400)
         .json({
-
           error:
             "Image upload failed."
-
         });
 
     }
@@ -1154,11 +1009,9 @@ app.use(
       return res
         .status(400)
         .json({
-
           error:
             error.message ||
             "Something went wrong."
-
         });
 
     }
@@ -1182,7 +1035,22 @@ app.listen(
   () => {
 
     console.log(
-      `Miiverse prototype running at http://localhost:${PORT}`
+      `Greenverse running on port ${PORT}`
+    );
+
+    console.log(
+      `Public directory: ${publicDir}`
+    );
+
+    console.log(
+      `Index exists: ${
+        fs.existsSync(
+          path.join(
+            publicDir,
+            "index.html"
+          )
+        )
+      }`
     );
 
   }
