@@ -12,13 +12,18 @@ const counter = document.querySelector("#counter");
 const changeUserButton = document.querySelector("#changeUser");
 const communitiesNav = document.querySelector("#communitiesNav");
 const userMenuNav = document.querySelector("#userMenuNav");
+const adminNav = document.querySelector("#adminNav");
 const communityList = document.querySelector("#communityList");
 const communityView = document.querySelector("#communityView");
 const userMenuView = document.querySelector("#userMenuView");
+const adminView = document.querySelector("#adminView");
 const userProfile = document.querySelector("#userProfile");
+const adminPanel = document.querySelector("#adminPanel");
 const pageHeading = document.querySelector("#pageHeading");
 const sectionLabel = document.querySelector("#sectionLabel");
 const miiverseGeneralButton = document.querySelector("#miiverseGeneralButton");
+
+let isAdmin = false;
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, character => ({
@@ -58,11 +63,29 @@ function showCreateForm() {
   userForm.querySelector('[name="name"]').focus();
 }
 
+async function checkAdmin() {
+  if (!currentUser) {
+    isAdmin = false;
+    adminNav.hidden = true;
+    return;
+  }
+  try {
+    const response = await fetch(`/api/admin/status?userId=${currentUser.id}`);
+    const data = await response.json();
+    isAdmin = response.ok && data.admin === true;
+    adminNav.hidden = !isAdmin;
+  } catch {
+    isAdmin = false;
+    adminNav.hidden = true;
+  }
+}
+
 function renderUser() {
   if (!currentUser) {
     setup.style.display = "grid";
     changeUserButton.textContent = "Log In";
     userCard.innerHTML = "<div class=\"postDate\">Not signed in</div>";
+    adminNav.hidden = true;
     showAccountChoice();
     return;
   }
@@ -80,9 +103,11 @@ function showCommunity() {
   if (!currentUser) return renderUser();
   communitiesNav.classList.add("active");
   userMenuNav.classList.remove("active");
+  adminNav.classList.remove("active");
   communityList.hidden = false;
   communityView.hidden = false;
   userMenuView.hidden = true;
+  adminView.hidden = true;
   sectionLabel.textContent = "COMMUNITY";
   pageHeading.textContent = "Miiverse General";
   miiverseGeneralButton.classList.add("active");
@@ -94,9 +119,11 @@ async function showUserMenu() {
 
   communitiesNav.classList.remove("active");
   userMenuNav.classList.add("active");
+  adminNav.classList.remove("active");
   communityList.hidden = true;
   communityView.hidden = true;
   userMenuView.hidden = false;
+  adminView.hidden = true;
   sectionLabel.textContent = "USER MENU";
   pageHeading.textContent = "User Menu";
 
@@ -128,6 +155,45 @@ async function showUserMenu() {
     `;
   } catch (error) {
     console.error("Could not load user statistics:", error);
+  }
+}
+
+async function showAdminPanel() {
+  if (!currentUser || !isAdmin) return showCommunity();
+
+  communitiesNav.classList.remove("active");
+  userMenuNav.classList.remove("active");
+  adminNav.classList.add("active");
+  communityList.hidden = true;
+  communityView.hidden = true;
+  userMenuView.hidden = true;
+  adminView.hidden = false;
+  sectionLabel.textContent = "ADMIN";
+  pageHeading.textContent = "Admin Panel";
+
+  adminPanel.innerHTML = `
+    <div class="profileHero">
+      <h2>Greenverse Admin</h2>
+      <p>Signed in as ${escapeHtml(currentUser.name)}</p>
+    </div>
+    <div class="profileStats" id="adminStats">
+      <div class="stat"><strong>—</strong><span>Accounts</span></div>
+      <div class="stat"><strong>—</strong><span>Posts</span></div>
+      <div class="stat"><strong>—</strong><span>Yeahs</span></div>
+    </div>
+  `;
+
+  try {
+    const response = await fetch(`/api/admin/stats?userId=${currentUser.id}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Admin access denied.");
+    document.querySelector("#adminStats").innerHTML = `
+      <div class="stat"><strong>${data.users}</strong><span>Accounts</span></div>
+      <div class="stat"><strong>${data.posts}</strong><span>Posts</span></div>
+      <div class="stat"><strong>${data.yeahs}</strong><span>Yeahs</span></div>
+    `;
+  } catch (error) {
+    adminPanel.innerHTML += `<p class="error">${escapeHtml(error.message)}</p>`;
   }
 }
 
@@ -177,6 +243,7 @@ loginForm.addEventListener("submit", async event => {
     currentUser = data;
     localStorage.setItem("miiverseUser", JSON.stringify(currentUser));
     renderUser();
+    await checkAdmin();
     await loadPosts();
   } catch (error) {
     console.error(error);
@@ -199,6 +266,7 @@ userForm.addEventListener("submit", async event => {
     currentUser = data;
     localStorage.setItem("miiverseUser", JSON.stringify(currentUser));
     renderUser();
+    await checkAdmin();
     await loadPosts();
   } catch (error) {
     console.error(error);
@@ -257,20 +325,26 @@ document.querySelector("#backToChoiceFromCreate").addEventListener("click", show
 communitiesNav.addEventListener("click", showCommunity);
 miiverseGeneralButton.addEventListener("click", showCommunity);
 userMenuNav.addEventListener("click", showUserMenu);
+adminNav.addEventListener("click", showAdminPanel);
 
 changeUserButton.addEventListener("click", () => {
   if (!currentUser) return showLoginForm();
   localStorage.removeItem("miiverseUser");
   currentUser = null;
+  isAdmin = false;
   renderUser();
 });
 
 renderUser();
-if (currentUser) showCommunity();
-else showAccountChoice();
+if (currentUser) {
+  checkAdmin().then(() => showCommunity());
+} else {
+  showAccountChoice();
+}
 
 setInterval(() => {
   if (!currentUser) return;
   if (!userMenuView.hidden) showUserMenu();
-  else loadPosts();
+  else if (!adminView.hidden && isAdmin) showAdminPanel();
+  else if (!communityView.hidden) loadPosts();
 }, 5000);
