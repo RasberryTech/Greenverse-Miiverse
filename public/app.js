@@ -41,6 +41,20 @@ function formatDate(value) {
   catch { return value; }
 }
 
+async function getResponseError(response, fallback) {
+  const contentType = response.headers.get("content-type") || "";
+  try {
+    if (contentType.includes("application/json")) {
+      const data = await response.json();
+      return data.error || fallback;
+    }
+    const text = (await response.text()).trim();
+    return text || `${fallback} (HTTP ${response.status})`;
+  } catch {
+    return `${fallback} (HTTP ${response.status})`;
+  }
+}
+
 function showAccountChoice() {
   accountChoice.hidden = false;
   loginForm.hidden = true;
@@ -142,7 +156,7 @@ async function showUserMenu() {
 
   try {
     const response = await fetch(`/api/posts?userId=${currentUser.id}`);
-    if (!response.ok) throw new Error("Could not load statistics.");
+    if (!response.ok) throw new Error(await getResponseError(response, "Could not load statistics."));
     const posts = await response.json();
     const myPosts = posts.filter(post => Number(post.user_id) === Number(currentUser.id));
     const postsMade = myPosts.length;
@@ -207,11 +221,11 @@ loginForm.addEventListener("submit", async event => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: document.querySelector("#loginName").value.trim() })
     });
-    const data = await response.json();
     if (!response.ok) {
-      errorElement.textContent = data.error || "Could not log in.";
+      errorElement.textContent = await getResponseError(response, "Could not log in.");
       return;
     }
+    const data = await response.json();
     currentUser = data;
     localStorage.setItem("miiverseUser", JSON.stringify(currentUser));
     renderUser();
@@ -230,11 +244,11 @@ userForm.addEventListener("submit", async event => {
   errorElement.textContent = "";
   try {
     const response = await fetch("/api/users", { method: "POST", body: form });
-    const data = await response.json();
     if (!response.ok) {
-      errorElement.textContent = data.error || "Could not create account.";
+      errorElement.textContent = await getResponseError(response, "Could not create account.");
       return;
     }
+    const data = await response.json();
     currentUser = data;
     localStorage.setItem("miiverseUser", JSON.stringify(currentUser));
     renderUser();
@@ -251,20 +265,28 @@ postForm.addEventListener("submit", async event => {
   if (!currentUser) return renderUser();
   const text = postText.value.trim();
   if (!text) return;
+
   try {
     const response = await fetch("/api/posts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: currentUser.id, text })
     });
+
+    if (!response.ok) {
+      const message = await getResponseError(response, "Could not create post.");
+      console.error("Greenverse post request failed:", response.status, message);
+      return alert(message);
+    }
+
     const data = await response.json();
-    if (!response.ok) return alert(data.error || "Could not create post.");
+    if (!data.id) return alert("The server did not confirm the post was created.");
     postText.value = "";
     counter.textContent = "0 / 500";
     await loadPosts();
   } catch (error) {
-    console.error(error);
-    alert("Could not connect to the server.");
+    console.error("Greenverse post request failed:", error);
+    alert("Could not connect to the server. Check the Render logs for the /api/posts request.");
   }
 });
 
@@ -281,8 +303,8 @@ feed.addEventListener("click", async event => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: currentUser.id })
     });
-    const data = await response.json();
-    if (!response.ok) return alert(data.error || "Could not change Yeah status.");
+    if (!response.ok) return alert(await getResponseError(response, "Could not change Yeah status."));
+    await response.json();
     await loadPosts();
   } catch (error) {
     console.error(error);
@@ -314,11 +336,6 @@ if (currentUser) {
   showAccountChoice();
 }
 
-// Refresh normal pages every 5 seconds. The admin panel is intentionally
-// excluded because moderation.js owns its authenticated admin session and
-// refreshes its own data. Calling showAdminPanel() here would bypass the
-// admin password header and replace the working moderation panel with an
-// unauthenticated request every 5 seconds.
 setInterval(() => {
   if (!currentUser) return;
   if (!userMenuView.hidden) showUserMenu();
