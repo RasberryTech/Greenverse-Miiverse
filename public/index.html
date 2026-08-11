@@ -9,7 +9,7 @@
 <body>
   <header class="topbar">
     <div class="brand">Greenverse</div>
-    <button id="changeUser" type="button">Change user</button>
+    <button id="changeUser" type="button">Log Out</button>
   </header>
 
   <main class="layout">
@@ -30,20 +30,14 @@
       <div id="communityList" class="communityList">
         <button class="communityButton active" id="miiverseGeneralButton" type="button">
           <span class="communityIcon">🌐</span>
-          <span>
-            <strong>Miiverse General</strong>
-            <small>General Greenverse discussion</small>
-          </span>
+          <span><strong>Miiverse General</strong><small>General Greenverse discussion</small></span>
         </button>
       </div>
 
       <section id="communityView">
         <form id="postForm" class="composer">
           <textarea id="postText" maxlength="500" placeholder="Write a post..."></textarea>
-          <div class="composerBottom">
-            <span id="counter">0 / 500</span>
-            <button class="postButton" type="submit">Post</button>
-          </div>
+          <div class="composerBottom"><span id="counter">0 / 500</span><button class="postButton" type="submit">Post</button></div>
         </form>
         <div id="feed"></div>
       </section>
@@ -55,18 +49,39 @@
   </main>
 
   <div id="setup" class="modal">
-    <form id="userForm" class="modalCard" enctype="multipart/form-data">
-      <h2>Choose your user</h2>
-      <p>Pick a name and an optional profile picture.</p>
-      <label>Name
-        <input name="name" maxlength="24" required placeholder="Your name">
-      </label>
-      <label>Profile picture
-        <input name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
-      </label>
-      <button class="postButton" type="submit">Enter</button>
-      <p id="error" class="error"></p>
-    </form>
+    <div class="modalCard">
+      <div id="accountChoice">
+        <h2>Welcome to Greenverse</h2>
+        <p>Phase 1 GreenTendo accounts are passwordless. You can log out and sign back in with your GreenTendo name.</p>
+        <button id="showLogin" class="postButton" type="button">Log In</button>
+        <button id="showCreate" class="postButton" type="button">Create Account</button>
+      </div>
+
+      <form id="loginForm" hidden>
+        <h2>Log In</h2>
+        <p>Enter the GreenTendo name you used when you created your account.</p>
+        <label>Name
+          <input id="loginName" name="name" maxlength="24" required placeholder="Your GreenTendo name">
+        </label>
+        <button class="postButton" type="submit">Log In</button>
+        <button id="backToChoiceFromLogin" class="postButton secondaryButton" type="button">Back</button>
+        <p id="loginError" class="error"></p>
+      </form>
+
+      <form id="userForm" hidden enctype="multipart/form-data">
+        <h2>Create your GreenTendo account</h2>
+        <p>Phase 1 accounts do not use passwords yet.</p>
+        <label>Name
+          <input name="name" maxlength="24" required placeholder="Your name">
+        </label>
+        <label>Profile picture
+          <input name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+        </label>
+        <button class="postButton" type="submit">Create Account</button>
+        <button id="backToChoiceFromCreate" class="postButton secondaryButton" type="button">Back</button>
+        <p id="error" class="error"></p>
+      </form>
+    </div>
   </div>
 
   <script src="/app.js"></script>
