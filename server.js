@@ -8,9 +8,9 @@ const Database = require("better-sqlite3");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_USERNAME = String(process.env.ADMIN_USERNAME || "test").trim();
-// Password is intentionally kept server-side as a SHA-256 hash.
-// Change ADMIN_PASSWORD_HASH in your hosting environment for production.
-const ADMIN_PASSWORD_HASH = String(process.env.ADMIN_PASSWORD_HASH || "9a0e5c8c8b7e7a5e7a9f7f0f5a6d4b0c4f2a5f5b2d5c8a0c9b6a3d1e7f4c2b8").trim();
+// Phase 1 temporary admin password. Stored as a hash, never sent to the browser.
+// Replace ADMIN_PASSWORD_HASH with your own value when moving beyond Phase 1.
+const ADMIN_PASSWORD_HASH = String(process.env.ADMIN_PASSWORD_HASH || "feeea7ab1ad088b71099337051d24f75ec0e71d3f90045a163359c761512ccf0").trim();
 const dataDir = path.join(__dirname, "data");
 const uploadDir = path.join(__dirname, "uploads");
 const publicDir = path.join(__dirname, "public");
