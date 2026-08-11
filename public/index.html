@@ -1,164 +1,74 @@
 <!doctype html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  >
-
-  <title>Miiverse Prototype</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Greenverse</title>
   <link rel="stylesheet" href="/style.css">
 </head>
-
 <body>
-
   <header class="topbar">
-
-    <div class="brand">
-      Miiverse Prototype
-    </div>
-
-    <button id="changeUser">
-      Change user
-    </button>
-
+    <div class="brand">Greenverse</div>
+    <button id="changeUser" type="button">Change user</button>
   </header>
 
-
   <main class="layout">
-
     <aside class="sidebar">
-
       <div id="userCard"></div>
-
       <nav>
-
-        <button class="nav active">
-          Home
-        </button>
-
-        <button class="nav">
-          Communities
-        </button>
-
-        <button class="nav">
-          Activity
-        </button>
-
+        <button class="nav active" id="communitiesNav" type="button">Communities</button>
+        <button class="nav" id="userMenuNav" type="button">👤 User Menu</button>
       </nav>
-
     </aside>
 
-
     <section class="feed">
-
       <div class="pageTitle">
-
-        <small>COMMUNITY</small>
-
-        <h1>Everyone</h1>
-
+        <small id="sectionLabel">COMMUNITY</small>
+        <h1 id="pageHeading">Miiverse General</h1>
       </div>
 
-
-      <form id="postForm" class="composer">
-
-        <textarea
-          id="postText"
-          maxlength="500"
-          placeholder="Write a post..."
-        ></textarea>
-
-        <div class="composerBottom">
-
-          <span id="counter">
-            0 / 500
+      <div id="communityList" class="communityList">
+        <button class="communityButton active" id="miiverseGeneralButton" type="button">
+          <span class="communityIcon">🌐</span>
+          <span>
+            <strong>Miiverse General</strong>
+            <small>General Greenverse discussion</small>
           </span>
+        </button>
+      </div>
 
-          <button
-            class="postButton"
-            type="submit"
-          >
-            Post
-          </button>
+      <section id="communityView">
+        <form id="postForm" class="composer">
+          <textarea id="postText" maxlength="500" placeholder="Write a post..."></textarea>
+          <div class="composerBottom">
+            <span id="counter">0 / 500</span>
+            <button class="postButton" type="submit">Post</button>
+          </div>
+        </form>
+        <div id="feed"></div>
+      </section>
 
-        </div>
-
-      </form>
-
-
-      <div id="feed"></div>
-
+      <section id="userMenuView" class="userMenuView" hidden>
+        <div id="userProfile"></div>
+      </section>
     </section>
-
   </main>
 
-
   <div id="setup" class="modal">
-
-    <form
-      id="userForm"
-      class="modalCard"
-      enctype="multipart/form-data"
-    >
-
-      <h2>
-        Choose your user
-      </h2>
-
-      <p>
-        Pick a name and an optional profile picture.
-      </p>
-
-
-      <label>
-
-        Name
-
-        <input
-          name="name"
-          maxlength="24"
-          required
-          placeholder="Your name"
-        >
-
+    <form id="userForm" class="modalCard" enctype="multipart/form-data">
+      <h2>Choose your user</h2>
+      <p>Pick a name and an optional profile picture.</p>
+      <label>Name
+        <input name="name" maxlength="24" required placeholder="Your name">
       </label>
-
-
-      <label>
-
-        Profile picture
-
-        <input
-          name="avatar"
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-        >
-
+      <label>Profile picture
+        <input name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
       </label>
-
-
-      <button
-        class="postButton"
-        type="submit"
-      >
-        Enter
-      </button>
-
-
+      <button class="postButton" type="submit">Enter</button>
       <p id="error" class="error"></p>
-
     </form>
-
   </div>
 
-
   <script src="/app.js"></script>
-
 </body>
-
 </html>
