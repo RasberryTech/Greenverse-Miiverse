@@ -7,6 +7,30 @@
   const user = () => { try { return JSON.parse(localStorage.getItem("miiverseUser") || "null"); } catch { return null; } };
   const adminFetch = (url, options = {}) => { options.headers = { ...(options.headers || {}), "X-Admin-Password": adminPassword }; return fetch(url, options); };
 
+  function getUiMode() { return localStorage.getItem("greenverseUiMode") || "desktop"; }
+  function applyUiMode(mode) {
+    const selected = mode === "phone" ? "phone" : "desktop";
+    document.documentElement.dataset.uiMode = selected;
+    localStorage.setItem("greenverseUiMode", selected);
+    document.querySelectorAll("[data-ui-mode-choice]").forEach(button => {
+      const active = button.dataset.uiModeChoice === selected;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+  }
+  function renderUiSettings() {
+    const current = getUiMode();
+    return `<div class="adminSection uiSettingsSection"><h2>UI Settings</h2><p class="uiSettingsDescription">Choose which Greenverse layout this browser uses. This only changes the interface; your posts, account, and moderation tools stay the same.</p><div class="uiModeGrid"><button type="button" class="uiModeButton${current === "desktop" ? " active" : ""}" data-ui-mode-choice="desktop" aria-pressed="${current === "desktop"}"><span class="uiModeIcon">💻</span><span><strong>Desktop UI</strong><small>Wide PC layout</small></span></button><button type="button" class="uiModeButton${current === "phone" ? " active" : ""}" data-ui-mode-choice="phone" aria-pressed="${current === "phone"}"><span class="uiModeIcon">📱</span><span><strong>Phone UI</strong><small>Compact mobile layout</small></span></button></div></div>`;
+  }
+  function bindUiSettings() {
+    document.querySelectorAll("[data-ui-mode-choice]").forEach(button => {
+      button.addEventListener("click", () => applyUiMode(button.dataset.uiModeChoice));
+    });
+    applyUiMode(getUiMode());
+  }
+
+  applyUiMode(getUiMode());
+
   async function openAdmin() {
     const u = user(); if (!u) return;
     if (!adminPassword) { $("#adminPasswordModal").hidden=false; $("#adminPassword").focus(); return; }
@@ -16,7 +40,8 @@
       const [sr,ur,pr]=await Promise.all([adminFetch(`/api/admin/stats?userId=${u.id}`),adminFetch(`/api/admin/users?userId=${u.id}`),adminFetch(`/api/admin/posts?userId=${u.id}`)]);
       const s=await sr.json(), users=await ur.json(), posts=await pr.json();
       if(!sr.ok||!ur.ok||!pr.ok) throw Error(s.error||users.error||posts.error||"Could not load admin data.");
-      panel.innerHTML=`<div class="profileHero"><h2>Greenverse Admin</h2><p>Administrator: ${esc(u.name)}</p></div><div class="profileStats adminStats"><div class="stat"><strong>${s.users}</strong><span>Accounts</span></div><div class="stat"><strong>${s.posts}</strong><span>Posts</span></div><div class="stat"><strong>${s.yeahs}</strong><span>Yeahs</span></div><div class="stat"><strong>${s.warnings}</strong><span>Warnings</span></div><div class="stat"><strong>${s.banned}</strong><span>Banned</span></div></div><div class="adminSection"><h2>Account Moderation</h2><div class="adminTable">${users.map(x=>`<div class="adminRow"><div class="adminIdentity"><img class="smallAvatar" src="${avatar(x.avatar)}" alt=""><div><strong>${esc(x.name)}</strong><small>ID ${x.id} · ${x.warning_count} warning${Number(x.warning_count)===1?'':'s'} ${x.banned?'· BANNED':''}</small></div></div><div class="adminActions">${x.id===u.id?'<span class="adminBadge">YOU</span>':`<button class="postButton" data-mod="warn" data-user="${x.id}">Warn</button>${x.banned?`<button class="postButton" data-mod="unban" data-user="${x.id}">Unban</button>`:`<button class="postButton" data-mod="ban" data-user="${x.id}">Ban</button>`}<button class="postButton dangerButton" data-mod="delete-user" data-user="${x.id}" ${Number(x.warning_count)<3?'disabled title="Requires 3 warnings"':''}>Delete Account</button>`}</div></div>`).join('')}</div></div><div class="adminSection"><h2>Post Moderation</h2><div class="adminTable">${posts.map(p=>`<div class="adminRow"><div><strong>${esc(p.name)}</strong><small>${date(p.created_at)} · ${p.yeahs} Yeahs</small><div class="adminPostText">${esc(p.text||'')}${p.image?`<img class="adminPostImage" src="${p.image}" alt="Drawing">`:''}</div></div><button class="postButton dangerButton" data-mod="delete-post" data-post="${p.id}">Delete Post</button></div>`).join('')}</div></div>`;
+      panel.innerHTML=`<div class="profileHero"><h2>Greenverse Admin</h2><p>Administrator: ${esc(u.name)}</p></div>${renderUiSettings()}<div class="profileStats adminStats"><div class="stat"><strong>${s.users}</strong><span>Accounts</span></div><div class="stat"><strong>${s.posts}</strong><span>Posts</span></div><div class="stat"><strong>${s.yeahs}</strong><span>Yeahs</span></div><div class="stat"><strong>${s.warnings}</strong><span>Warnings</span></div><div class="stat"><strong>${s.banned}</strong><span>Banned</span></div></div><div class="adminSection"><h2>Account Moderation</h2><div class="adminTable">${users.map(x=>`<div class="adminRow"><div class="adminIdentity"><img class="smallAvatar" src="${avatar(x.avatar)}" alt=""><div><strong>${esc(x.name)}</strong><small>ID ${x.id} · ${x.warning_count} warning${Number(x.warning_count)===1?'':'s'} ${x.banned?'· BANNED':''}</small></div></div><div class="adminActions">${x.id===u.id?'<span class="adminBadge">YOU</span>':`<button class="postButton" data-mod="warn" data-user="${x.id}">Warn</button>${x.banned?`<button class="postButton" data-mod="unban" data-user="${x.id}">Unban</button>`:`<button class="postButton" data-mod="ban" data-user="${x.id}">Ban</button>`}<button class="postButton dangerButton" data-mod="delete-user" data-user="${x.id}" ${Number(x.warning_count)<3?'disabled title="Requires 3 warnings"':''}>Delete Account</button>`}</div></div>`).join('')}</div></div><div class="adminSection"><h2>Post Moderation</h2><div class="adminTable">${posts.map(p=>`<div class="adminRow"><div><strong>${esc(p.name)}</strong><small>${date(p.created_at)} · ${p.yeahs} Yeahs</small><div class="adminPostText">${esc(p.text||'')}${p.image?`<img class="adminPostImage" src="${p.image}" alt="Drawing">`:''}</div></div><button class="postButton dangerButton" data-mod="delete-post" data-post="${p.id}">Delete Post</button></div>`).join('')}</div></div>`;
+      bindUiSettings();
     } catch(e) { panel.innerHTML=`<div class="profileHero"><h2>Admin Panel</h2><p class="error">${esc(e.message)}</p></div>`; }
   }
 
@@ -24,6 +49,8 @@
   $("#cancelAdminPassword").onclick=()=>$("#adminPasswordModal").hidden=true;
   $("#adminNav").addEventListener("click",e=>{e.preventDefault();e.stopImmediatePropagation();openAdmin();},true);
   $("#adminPanel").addEventListener("click",async e=>{
+    const uiButton=e.target.closest("button[data-ui-mode-choice]");
+    if(uiButton){applyUiMode(uiButton.dataset.uiModeChoice);return;}
     const b=e.target.closest("button[data-mod]"); if(!b)return; const u=user(), action=b.dataset.mod, id=Number(b.dataset.user||0);
     if(action==="warn"){
       const reason=prompt("Warning reason:"); if(reason===null||!reason.trim())return;
