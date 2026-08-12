@@ -1,10 +1,7 @@
 (() => {
   const KEY = 'greenverse-ui-mode';
 
-  function mode() {
-    return localStorage.getItem(KEY) || 'auto';
-  }
-
+  function mode() { return localStorage.getItem(KEY) || 'auto'; }
   function applyMode() {
     document.body.classList.remove('forcePhoneUI', 'forceDesktopUI');
     if (mode() === 'phone') document.body.classList.add('forcePhoneUI');
@@ -24,9 +21,16 @@
     body.forcePhoneUI .nav { flex:1 !important; min-width:0 !important; height:52px !important; padding:7px 3px !important; border-radius:8px !important; text-align:center !important; font-size:12px !important; white-space:nowrap !important; }
     body.forcePhoneUI .feed { width:100% !important; max-width:none !important; padding:16px 10px 20px !important; }
     body.forcePhoneUI .profileStats, body.forcePhoneUI .adminStats { grid-template-columns:1fr !important; }
-    body.forcePhoneUI .adminRow { align-items:flex-start !important; flex-direction:column !important; }
-    body.forcePhoneUI .adminActions { width:100% !important; justify-content:flex-start !important; }
-    body.forcePhoneUI .adminActions .postButton { flex:1 !important; }
+    body.forcePhoneUI #adminView { width:100% !important; max-width:none !important; overflow-x:hidden !important; }
+    body.forcePhoneUI #adminPanel { width:100% !important; max-width:none !important; box-sizing:border-box !important; }
+    body.forcePhoneUI #adminPanel * { max-width:100%; box-sizing:border-box; }
+    body.forcePhoneUI .adminSection { width:100% !important; overflow:hidden !important; }
+    body.forcePhoneUI .adminTable { width:100% !important; }
+    body.forcePhoneUI .adminRow { align-items:stretch !important; flex-direction:column !important; width:100% !important; gap:10px !important; }
+    body.forcePhoneUI .adminRow > div:first-child { width:100% !important; }
+    body.forcePhoneUI .adminActions { width:100% !important; display:flex !important; flex-wrap:wrap !important; justify-content:stretch !important; gap:6px !important; }
+    body.forcePhoneUI .adminActions .postButton { flex:1 1 140px !important; min-width:0 !important; }
+    body.forcePhoneUI .adminTable input, body.forcePhoneUI .adminTable textarea, body.forcePhoneUI .adminTable select { width:100% !important; min-width:0 !important; }
 
     body.forceDesktopUI { background:#f1f1f1 !important; padding-bottom:0 !important; }
     body.forceDesktopUI .topbar { height:60px !important; padding:0 24px !important; }
@@ -52,7 +56,6 @@
   function addSettings() {
     const panel = document.querySelector('#adminPanel');
     if (!panel || panel.querySelector('#uiSettingsSection')) return;
-
     const section = document.createElement('div');
     section.className = 'adminSection';
     section.id = 'uiSettingsSection';
@@ -60,10 +63,7 @@
       <h2>UI Settings</h2>
       <div class="adminTable">
         <div class="adminRow">
-          <div>
-            <strong>Interface</strong>
-            <small>Choose which Greenverse layout this browser uses.</small>
-          </div>
+          <div><strong>Interface</strong><small>Choose which Greenverse layout this browser uses.</small></div>
           <div class="adminActions">
             <button class="postButton" type="button" data-ui-mode="desktop">💻 Desktop UI</button>
             <button class="postButton" type="button" data-ui-mode="phone">📱 Phone UI</button>
@@ -80,10 +80,7 @@
     const selected = button.dataset.uiMode;
     localStorage.setItem(KEY, selected);
     applyMode();
-    addSettings();
-    document.querySelectorAll('[data-ui-mode]').forEach(b => {
-      b.classList.toggle('yeahActive', b.dataset.uiMode === selected);
-    });
+    document.querySelectorAll('[data-ui-mode]').forEach(b => b.classList.toggle('yeahActive', b.dataset.uiMode === selected));
   });
 
   const observer = new MutationObserver(addSettings);
