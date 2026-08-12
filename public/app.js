@@ -55,8 +55,8 @@ async function getResponseError(response, fallback) {
   }
 }
 
-// Load the feed from the same Render server. This function is intentionally
-// global because the post composer and other Greenverse scripts call it.
+// The enhanced renderer in enhancements.js replaces window.loadPosts.
+// Keep this fallback so the app still works if enhancements.js is unavailable.
 async function loadPosts() {
   if (!feed) return;
   try {
@@ -75,20 +75,25 @@ async function loadPosts() {
       const image = post.image ? `<img class="postImage" src="${escapeHtml(post.image)}" alt="Post image" loading="lazy">` : "";
       const yeahs = Number(post.yeahs || 0);
       const yeahed = Number(post.yeahed || 0) === 1;
-      return `<article class="post">
+      return `<article class="post" data-post-id="${Number(post.id)}">
         <div class="postHeader">
           <img class="avatar" src="${avatar}" alt="">
           <div><strong>${escapeHtml(post.name)}</strong><div class="postDate">${escapeHtml(formatDate(post.created_at))}</div></div>
         </div>
         ${post.text ? `<div class="postText">${escapeHtml(post.text).replace(/\n/g, "<br>")}</div>` : ""}
         ${image}
-        <div class="postActions"><button class="yeahButton${yeahed ? " active" : ""}" type="button" data-id="${Number(post.id)}">Yeah <span>${yeahs}</span></button></div>
+        <div class="postActions"><button class="yeahButton${yeahed ? " active" : ""}" type="button" data-id="${Number(post.id)}">Yeah <span>${yeahs}</span></button><button class="postButton replyToggle" data-id="${Number(post.id)}" type="button">💬 Reply</button></div>
+        <div class="replyBox" data-replies-for="${Number(post.id)}" hidden><div class="replyList"></div><form class="replyForm" data-id="${Number(post.id)}"><input class="replyInput" maxlength="500" placeholder="Write a reply..." required><button class="postButton" type="submit">Reply</button></form></div>
       </article>`;
     }).join("");
   } catch (error) {
     console.error("Could not load Greenverse posts:", error);
     feed.innerHTML = `<div class="post"><div class="error">${escapeHtml(error.message || "Could not load posts.")}</div></div>`;
   }
+}
+
+function refreshPosts() {
+  return typeof window.loadPosts === "function" ? window.loadPosts({ replace: true }) : loadPosts();
 }
 
 function showAccountChoice() {
@@ -154,7 +159,7 @@ function showCommunity() {
   sectionLabel.textContent = "COMMUNITY";
   pageHeading.textContent = "Miiverse General";
   miiverseGeneralButton.classList.add("active");
-  loadPosts();
+  refreshPosts();
 }
 
 async function showUserMenu() {
@@ -196,7 +201,7 @@ loginForm.addEventListener("submit", async event => {
     localStorage.setItem("miiverseUser", JSON.stringify(currentUser));
     renderUser();
     await checkAdmin();
-    await loadPosts();
+    await refreshPosts();
   } catch (error) { console.error(error); errorElement.textContent = "Could not connect to the server."; }
 });
 
@@ -212,7 +217,7 @@ userForm.addEventListener("submit", async event => {
     localStorage.setItem("miiverseUser", JSON.stringify(currentUser));
     renderUser();
     await checkAdmin();
-    await loadPosts();
+    await refreshPosts();
   } catch (error) { console.error(error); errorElement.textContent = "Could not connect to the server."; }
 });
 
@@ -236,7 +241,7 @@ postForm.addEventListener("submit", async event => {
     if (!data.id) return alert("The server did not confirm the post was created.");
     postText.value = "";
     counter.textContent = "0 / 500";
-    await loadPosts();
+    await refreshPosts();
   } catch (error) {
     console.error("Greenverse post request failed:", error);
     alert("Could not connect to the server. Check the Render logs for the /api/posts request.");
