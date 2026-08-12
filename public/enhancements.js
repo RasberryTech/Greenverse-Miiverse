@@ -1,28 +1,77 @@
 (() => {
   let drawingData = null;
   let warningsMode = false;
+  let lastNewestPostId = 0;
+  let firstPostLoad = true;
   const $ = s => document.querySelector(s);
   const esc = v => String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
   const getUser = () => { try { return JSON.parse(localStorage.getItem("miiverseUser") || "null"); } catch { return null; } };
   const formatDate = v => { try { return new Date(v.replace(" ", "T") + "Z").toLocaleString(); } catch { return v; } };
 
-  window.loadPosts = async function loadPosts() {
+  function postHTML(post) {
+    return `
+      <article class="post" data-post-id="${post.id}">
+        <div class="postHeader"><img class="avatar" src="${esc(post.avatar || "")}" alt=""><div><b>${esc(post.name)}</b><div class="postDate">${formatDate(post.created_at)}</div></div></div>
+        ${post.text ? `<div class="postText">${esc(post.text).replace(/\n/g,"<br>")}</div>` : ""}
+        ${post.image ? `<img class="postImage" src="${esc(post.image)}" alt="Post image">` : ""}
+        <div class="postActions"><button class="yeahButton ${post.yeahed ? "yeahed" : ""}" data-id="${post.id}" type="button">${post.yeahed ? "Unyeah" : "Yeah"} <span class="yeahCount">${Number(post.yeahs || 0)}</span></button></div>
+      </article>`;
+  }
+
+  window.loadPosts = async function loadPosts(options = {}) {
     const feed = $("#feed"); if (!feed) return;
     const u = getUser();
     try {
-      const r = await fetch(`/api/posts?userId=${u ? encodeURIComponent(u.id) : 0}`);
+      const r = await fetch(`/api/posts?userId=${u ? encodeURIComponent(u.id) : 0}`, { cache: "no-store" });
       if (!r.ok) { let d={}; try { d=await r.json(); } catch {} throw Error(d.error || `Could not load posts (HTTP ${r.status}).`); }
       const posts = await r.json();
-      if (!posts.length) { feed.innerHTML='<div class="post"><div class="postText">No posts yet. Be the first to post!</div></div>'; return; }
-      feed.innerHTML = posts.map(post => `
-        <article class="post">
-          <div class="postHeader"><img class="avatar" src="${esc(post.avatar || "")}" alt=""><div><b>${esc(post.name)}</b><div class="postDate">${formatDate(post.created_at)}</div></div></div>
-          ${post.text ? `<div class="postText">${esc(post.text).replace(/\n/g,"<br>")}</div>` : ""}
-          ${post.image ? `<img class="postImage" src="${esc(post.image)}" alt="Post image">` : ""}
-          <div class="postActions"><button class="yeahButton ${post.yeahed ? "yeahed" : ""}" data-id="${post.id}" type="button">${post.yeahed ? "Unyeah" : "Yeah"} <span class="yeahCount">${Number(post.yeahs || 0)}</span></button></div>
-        </article>`).join("");
-    } catch (error) { console.error(error); feed.innerHTML=`<div class="post"><div class="postText error">Could not load posts: ${esc(error.message)}</div></div>`; }
+      if (!posts.length) {
+        if (firstPostLoad) feed.innerHTML='<div class="post"><div class="postText">No posts yet. Be the first to post!</div></div>';
+        firstPostLoad = false;
+        return;
+      }
+
+      const newestId = Number(posts[0].id || 0);
+      const isInitial = firstPostLoad;
+      if (isInitial || options.replace) {
+        feed.innerHTML = posts.map(postHTML).join("");
+        firstPostLoad = false;
+      } else {
+        const existingIds = new Set([...feed.querySelectorAll("[data-post-id]")].map(el => Number(el.dataset.postId)));
+        const newPosts = posts.filter(post => !existingIds.has(Number(post.id)));
+        if (newPosts.length) {
+          const empty = feed.querySelector(".postText")?.textContent === "No posts yet. Be the first to post!";
+          if (empty) feed.innerHTML = "";
+          const fragment = document.createDocumentFragment();
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = newPosts.map(postHTML).join("");
+          [...wrapper.children].reverse().forEach(post => fragment.appendChild(post));
+          feed.prepend(fragment);
+          showNewPostsNotice(newPosts.length);
+        }
+      }
+      lastNewestPostId = Math.max(lastNewestPostId, newestId);
+    } catch (error) {
+      console.error(error);
+      if (firstPostLoad) feed.innerHTML=`<div class="post"><div class="postText error">Could not load posts: ${esc(error.message)}</div></div>`;
+    }
   };
+
+  function showNewPostsNotice(count) {
+    let notice = document.getElementById("newPostsNotice");
+    if (!notice) {
+      notice = document.createElement("button");
+      notice.id = "newPostsNotice";
+      notice.type = "button";
+      notice.textContent = "New posts";
+      Object.assign(notice.style, {position:"fixed",top:"70px",left:"50%",transform:"translateX(-50%)",zIndex:"80",border:"1px solid #aaa",background:"#fff",color:"#444",borderRadius:"20px",padding:"9px 16px",fontWeight:"bold",cursor:"pointer",boxShadow:"0 2px 10px rgba(0,0,0,.15)"});
+      document.body.appendChild(notice);
+      notice.addEventListener("click", () => { notice.remove(); window.scrollTo({top:0, behavior:"smooth"}); });
+    }
+    notice.textContent = `${count} new post${count === 1 ? "" : "s"}`;
+    clearTimeout(notice._timer);
+    notice._timer = setTimeout(() => notice.remove(), 5000);
+  }
 
   const feed = $("#feed");
   if (feed) feed.addEventListener("click", async e => {
@@ -34,7 +83,7 @@
       const r = await fetch(`/api/posts/${encodeURIComponent(button.dataset.id)}/yeah`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({userId:u.id}) });
       let d={}; try { d=await r.json(); } catch {}
       if (!r.ok) throw Error(d.error || `Could not Yeah this post (HTTP ${r.status}).`);
-      await loadPosts();
+      await loadPosts({replace:true});
     } catch (error) {
       console.error("Yeah failed:", error);
       alert(error.message);
@@ -42,10 +91,16 @@
     }
   });
 
+  // Check for new posts automatically. This means phones, tablets, and PCs
+  // see posts from other devices without manually refreshing the page.
+  setInterval(() => {
+    if (document.visibilityState === "visible") loadPosts();
+  }, 1500);
+
   async function loadUserStats() {
     const u=getUser(), stats=$("#profileStats"); if(!u||!stats)return;
     try {
-      const r=await fetch(`/api/posts?userId=${u.id}`); if(!r.ok)throw Error("Could not load profile statistics.");
+      const r=await fetch(`/api/posts?userId=${u.id}`, {cache:"no-store"}); if(!r.ok)throw Error("Could not load profile statistics.");
       const posts=await r.json();
       const mine=posts.filter(p=>Number(p.user_id)===Number(u.id));
       const received=mine.reduce((n,p)=>n+Number(p.yeahs||0),0);
@@ -78,6 +133,6 @@
     drawButton.addEventListener("click",()=>drawModal.hidden=false);$("#closeDraw").addEventListener("click",()=>drawModal.hidden=true);
     $("#clearDrawing").addEventListener("click",()=>{ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);});
     $("#saveDrawing").addEventListener("click",()=>{drawingData=canvas.toDataURL("image/png");const preview=$("#drawingPreview");preview.innerHTML=`<img src="${drawingData}" alt="Drawing preview"><button id="removeDrawing" class="postButton" type="button">Remove Drawing</button>`;preview.hidden=false;$("#removeDrawing").onclick=()=>{drawingData=null;preview.hidden=true;preview.innerHTML="";};drawModal.hidden=true;});
-    $("#postForm").addEventListener("submit",async e=>{if(!drawingData)return;e.preventDefault();const u=getUser();if(!u)return;const fd=new FormData();fd.append("userId",u.id);fd.append("text",$("#postText").value.trim());const blob=await(await fetch(drawingData)).blob();fd.append("image",blob,"greenverse-drawing.png");const r=await fetch("/api/posts",{method:"POST",body:fd}),d=await r.json();if(!r.ok){alert(d.error||"Could not create post.");return;}$("#postText").value="";drawingData=null;$("#drawingPreview").hidden=true;$("#drawingPreview").innerHTML="";$("#counter").textContent="0 / 500";await loadPosts();},true);
+    $("#postForm").addEventListener("submit",async e=>{if(!drawingData)return;e.preventDefault();const u=getUser();if(!u)return;const fd=new FormData();fd.append("userId",u.id);fd.append("text",$("#postText").value.trim());const blob=await(await fetch(drawingData)).blob();fd.append("image",blob,"greenverse-drawing.png");const r=await fetch("/api/posts",{method:"POST",body:fd}),d=await r.json();if(!r.ok){alert(d.error||"Could not create post.");return;}$("#postText").value="";drawingData=null;$("#drawingPreview").hidden=true;$("#drawingPreview").innerHTML="";$("#counter").textContent="0 / 500";await loadPosts({replace:true});},true);
   }
 })();
