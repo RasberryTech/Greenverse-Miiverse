@@ -19,12 +19,11 @@
           <div class="postHeader"><img class="avatar" src="${esc(post.avatar || "")}" alt=""><div><b>${esc(post.name)}</b><div class="postDate">${formatDate(post.created_at)}</div></div></div>
           ${post.text ? `<div class="postText">${esc(post.text).replace(/\n/g,"<br>")}</div>` : ""}
           ${post.image ? `<img class="postImage" src="${esc(post.image)}" alt="Post image">` : ""}
-          <div class="postActions"><button class="yeahButton ${post.yeahed ? "yeahed" : ""}" data-id="${post.id}" type="button">${post.yeahed ? "♥" : "♡"} Yeah <span class="yeahCount">${Number(post.yeahs || 0)}</span></button></div>
+          <div class="postActions"><button class="yeahButton ${post.yeahed ? "yeahed" : ""}" data-id="${post.id}" type="button">${post.yeahed ? "Unyeah" : "Yeah"} <span class="yeahCount">${Number(post.yeahs || 0)}</span></button></div>
         </article>`).join("");
     } catch (error) { console.error(error); feed.innerHTML=`<div class="post"><div class="postText error">Could not load posts: ${esc(error.message)}</div></div>`; }
   };
 
-  // Yeah toggle: the server stores one Yeah per user/post and toggles it on repeat clicks.
   const feed = $("#feed");
   if (feed) feed.addEventListener("click", async e => {
     const button = e.target.closest(".yeahButton"); if (!button) return;
@@ -43,7 +42,6 @@
     }
   });
 
-  // User page: show real post/Yeah statistics whenever the profile is opened.
   async function loadUserStats() {
     const u=getUser(), stats=$("#profileStats"); if(!u||!stats)return;
     try {
