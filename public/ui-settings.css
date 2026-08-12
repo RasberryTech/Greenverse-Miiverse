@@ -1,0 +1,48 @@
+/* Admin-controlled UI mode selection */
+html[data-ui-mode="phone"] .topbar { height: 52px; padding: 0 14px; }
+html[data-ui-mode="phone"] .brand { font-size: 17px; }
+html[data-ui-mode="phone"] .layout { display: block; width: 100%; max-width: none; min-height: calc(100vh - 52px); }
+html[data-ui-mode="phone"] .sidebar { width: 100%; padding: 10px 12px; border-right: 0; border-bottom: 1px solid #d4d4d4; }
+html[data-ui-mode="phone"] #userCard { display: flex; align-items: center; text-align: left; gap: 10px; margin-bottom: 10px; }
+html[data-ui-mode="phone"] #userCard .avatar { width: 48px; height: 48px; margin: 0; }
+html[data-ui-mode="phone"] nav { flex-direction: row; }
+html[data-ui-mode="phone"] .nav { flex: 1; min-width: 0; text-align: center; padding: 10px 6px; }
+html[data-ui-mode="phone"] .feed { width: 100%; max-width: none; padding: 16px 10px; }
+html[data-ui-mode="phone"] .profileStats,
+html[data-ui-mode="phone"] .adminStats { grid-template-columns: 1fr; }
+html[data-ui-mode="phone"] .adminRow { align-items: flex-start; flex-direction: column; }
+html[data-ui-mode="phone"] .adminActions { width: 100%; justify-content: flex-start; }
+html[data-ui-mode="phone"] .post { padding: 12px; }
+html[data-ui-mode="phone"] .postText { font-size: 14px; }
+html[data-ui-mode="phone"] .profileAvatar { width: 120px; height: 120px; }
+
+/* When Desktop is selected, override the normal narrow-screen media rules. */
+html[data-ui-mode="desktop"] .topbar { height: 60px; padding: 0 24px; }
+html[data-ui-mode="desktop"] .brand { font-size: 20px; }
+html[data-ui-mode="desktop"] .layout { display: flex; width: auto; max-width: 1100px; min-height: calc(100vh - 60px); }
+html[data-ui-mode="desktop"] .sidebar { width: 240px; padding: 24px 16px; border-right: 1px solid #d4d4d4; border-bottom: 0; }
+html[data-ui-mode="desktop"] #userCard { display: block; text-align: center; margin-bottom: 18px; }
+html[data-ui-mode="desktop"] #userCard .avatar { width: 76px; height: 76px; margin: 0 auto 10px; }
+html[data-ui-mode="desktop"] nav { flex-direction: column; }
+html[data-ui-mode="desktop"] .nav { flex: initial; text-align: left; }
+html[data-ui-mode="desktop"] .feed { width: auto; max-width: 760px; padding: 28px 30px; }
+html[data-ui-mode="desktop"] .profileStats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+html[data-ui-mode="desktop"] .adminStats { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+html[data-ui-mode="desktop"] .adminRow { align-items: center; flex-direction: row; }
+html[data-ui-mode="desktop"] .adminActions { width: auto; justify-content: flex-end; }
+html[data-ui-mode="desktop"] .post { padding: 16px; }
+html[data-ui-mode="desktop"] .postText { font-size: 15px; }
+html[data-ui-mode="desktop"] .profileAvatar { width: 210px; height: 210px; }
+
+.uiSettingsSection { margin-top: 20px; }
+.uiSettingsDescription { color: #777; font-size: 13px; line-height: 1.5; margin: 0 0 12px; }
+.uiModeGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.uiModeButton { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 72px; padding: 12px 14px; text-align: left; border: 2px solid #d0d0d0; border-radius: 8px; background: #fff; color: #444; cursor: pointer; }
+.uiModeButton:hover { background: #f5f5f5; }
+.uiModeButton.active { border-color: #777; background: #eee; }
+.uiModeButton strong, .uiModeButton small { display: block; }
+.uiModeButton small { margin-top: 3px; color: #888; font-size: 11px; }
+.uiModeIcon { font-size: 26px; flex: 0 0 auto; }
+@media (max-width: 600px) {
+  .uiModeGrid { grid-template-columns: 1fr; }
+}
