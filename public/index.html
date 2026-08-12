@@ -52,6 +52,7 @@
 </head>
 <body>
 <header class="topbar"><div class="brand">Greenverse</div><button id="changeUser" type="button">Log Out</button></header>
+<div id="switchMiiverseBar" class="switchMiiverseBar" aria-label="Miiverse navigation"><div class="switchMiiverseLogo">Miiverse</div><div class="switchMiiverseLinks"><button type="button" data-miiverse-nav="home">Home</button><button type="button" data-miiverse-nav="communities">Communities</button><button type="button" data-miiverse-nav="activity">Activity</button><button type="button" data-miiverse-nav="notifications">Notifications</button></div></div>
 <main class="layout"><aside class="sidebar"><div id="userCard"></div><nav><button class="nav active" id="communitiesNav" type="button">Communities</button><button class="nav" id="userMenuNav" type="button">👤 User Menu</button><button class="nav" id="adminNav" type="button" hidden>🛠️ Admin Panel</button></nav></aside>
 <section class="feed"><div class="pageTitle"><small id="sectionLabel">COMMUNITY</small><h1 id="pageHeading">Miiverse General</h1></div>
 <div id="communityList" class="communityList"><button class="communityButton active" id="miiverseGeneralButton" type="button"><span class="communityIcon">🌐</span><span><strong>Miiverse General</strong><small>General Greenverse discussion</small></span></button></div>
@@ -61,17 +62,22 @@
 <div id="setup" class="modal"><div class="modalCard"><div id="accountChoice"><h2>Welcome to Greenverse</h2><p>Phase 1 GreenTendo accounts are passwordless. You can log out and sign back in with your GreenTendo name.</p><button id="showLogin" class="postButton" type="button">Log In</button><button id="showCreate" class="postButton" type="button">Create Account</button></div><form id="loginForm" hidden><h2>Log In</h2><p>Enter your GreenTendo name.</p><label>Name<input id="loginName" name="name" maxlength="24" required placeholder="Your GreenTendo name"></label><button class="postButton" type="submit">Log In</button><button id="backToChoiceFromLogin" class="postButton secondaryButton" type="button">Back</button><p id="loginError" class="error"></p></form><form id="userForm" hidden enctype="multipart/form-data"><h2>Create your GreenTendo account</h2><p>Phase 1 accounts do not use passwords yet.</p><label>Name<input name="name" maxlength="24" required placeholder="Your name"></label><label>Profile picture<input name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><button class="postButton" type="submit">Create Account</button><button id="backToChoiceFromCreate" class="postButton secondaryButton" type="button">Back</button><p id="error" class="error"></p></form></div></div>
 <div id="adminPasswordModal" class="modal" hidden><form id="adminPasswordForm" class="modalCard"><h2>Admin Verification</h2><p>Enter the admin password to open moderation tools.</p><label>Password<input id="adminPassword" type="password" autocomplete="current-password" required></label><button class="postButton" type="submit">Unlock Admin Panel</button><button id="cancelAdminPassword" class="postButton secondaryButton" type="button">Cancel</button><p id="adminPasswordError" class="error"></p></form></div>
 <div id="drawModal" class="modal" hidden><div class="drawCard"><div class="drawHeader"><h2>Draw</h2><button id="closeDraw" type="button">×</button></div><canvas id="drawCanvas" width="700" height="450"></canvas><div class="drawControls"><label>Brush <input id="brushSize" type="range" min="1" max="40" value="6"></label><button id="clearDrawing" class="postButton" type="button">Clear</button><button id="saveDrawing" class="postButton" type="button">Use Drawing</button></div></div></div>
+<script src="/app.js"></script><script src="/moderation.js"></script><script src="/enhancements.js"></script>
 <script>
-(function () {
-  var ua = navigator.userAgent || "";
-  var params = new URLSearchParams(window.location.search);
-  var isNintendoBrowser = /NintendoBrowser/i.test(ua) || /Nintendo\s*Switch/i.test(ua);
-  var isSwitchHint = params.get("switchbru") === "1" || params.get("switch") === "1";
-  if (isNintendoBrowser || isSwitchHint) {
-    document.documentElement.classList.add("switchbru-ui");
-    document.documentElement.setAttribute("data-greenverse-device", "switch");
+(function(){
+  var ua=navigator.userAgent||'';
+  var switchUi=/Nintendo Switch/i.test(ua)||/NintendoBrowser/i.test(ua)||/[?&]switchbru=1(?:&|$)/i.test(location.search);
+  if(switchUi){
+    document.documentElement.classList.add('switchbru-ui');
+    document.querySelectorAll('[data-miiverse-nav]').forEach(function(button){
+      button.addEventListener('click',function(){
+        var target=button.getAttribute('data-miiverse-nav');
+        if(target==='home'||target==='communities') document.getElementById('communitiesNav').click();
+        if(target==='activity') document.getElementById('miiverseGeneralButton').click();
+        if(target==='notifications') document.getElementById('userMenuNav').click();
+      });
+    });
   }
 })();
 </script>
-<script src="/app.js"></script><script src="/moderation.js"></script><script src="/enhancements.js"></script>
 </body></html>
