@@ -1,0 +1,32 @@
+/* Greenverse SwitchBru / Nintendo Switch web-applet UI. Wii U-inspired, Greenverse-made. */
+html.switchbru-ui body{background:radial-gradient(circle at 50% 12%,#fff 0,#f4f7fa 34%,#dfe7ee 100%);color:#343a40;overflow-x:hidden}
+html.switchbru-ui .topbar{height:76px;padding:0 34px;background:linear-gradient(#fff,#edf2f6);border-bottom:1px solid #c5cdd4;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+html.switchbru-ui .brand{font-size:27px;letter-spacing:.3px;color:#35a9df;text-shadow:0 1px 0 #fff}
+html.switchbru-ui .topbar button{min-width:118px;min-height:48px;border:1px solid #b9c2ca;border-radius:7px;background:linear-gradient(#fff,#e8edf1);color:#4d555c;font-size:16px;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+html.switchbru-ui .layout{display:block;width:100%;min-height:calc(100vh - 76px)}
+html.switchbru-ui .sidebar{position:fixed;left:0;right:0;bottom:0;z-index:80;width:100%;height:94px;padding:8px 28px 10px;background:rgba(250,252,254,.97);border-top:1px solid #bcc6ce;box-shadow:0 -3px 14px rgba(0,0,0,.14)}
+html.switchbru-ui #userCard{display:none}
+html.switchbru-ui nav{height:100%;display:flex;align-items:center;justify-content:center;gap:18px}
+html.switchbru-ui .nav{width:230px;height:70px;border:1px solid #b9c3ca;border-radius:9px;background:linear-gradient(#fff,#e9eef2);color:#4d555c;font-size:17px;box-shadow:0 2px 5px rgba(0,0,0,.12)}
+html.switchbru-ui .nav.active{border-color:#40aee0;background:linear-gradient(#eefaff,#cfeeff);color:#167ba9;box-shadow:0 0 0 2px rgba(63,174,224,.15),0 2px 6px rgba(0,0,0,.13)}
+html.switchbru-ui .feed{width:min(1120px,calc(100% - 80px));max-width:1120px;margin:0 auto;padding:30px 0 125px}
+html.switchbru-ui .pageTitle{padding:0 8px 15px;border-bottom:1px solid #cbd3d9;margin-bottom:18px}
+html.switchbru-ui .pageTitle small{color:#73818c;letter-spacing:1.5px}
+html.switchbru-ui .pageTitle h1{margin:5px 0 0;font-size:31px;font-weight:400;color:#3e474e}
+html.switchbru-ui .communityList{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+html.switchbru-ui .communityButton{min-height:92px;padding:14px 18px;display:flex;align-items:center;gap:15px;text-align:left;border:1px solid #bcc7ce;border-radius:9px;background:linear-gradient(135deg,#fff,#eef3f6);box-shadow:0 2px 6px rgba(0,0,0,.11);color:#3e474e}
+html.switchbru-ui .communityButton.active{border-color:#43afe0;box-shadow:0 0 0 2px rgba(67,175,224,.12),0 2px 7px rgba(0,0,0,.12)}
+html.switchbru-ui .communityIcon{font-size:31px}
+html.switchbru-ui .communityButton small{display:block;margin-top:5px;color:#7a858d}
+html.switchbru-ui .composer,html.switchbru-ui .post,html.switchbru-ui .profileHero,html.switchbru-ui .warningCard,html.switchbru-ui .stat{border:1px solid #c4cdd4;border-radius:9px;background:rgba(255,255,255,.96);box-shadow:0 2px 7px rgba(0,0,0,.09)}
+html.switchbru-ui .composer{margin-top:18px;padding:18px}
+html.switchbru-ui .composer textarea{min-height:105px;font-size:18px;border:1px solid #c2cbd2;border-radius:7px;background:#fbfcfd}
+html.switchbru-ui .post{padding:19px;margin-bottom:14px}
+html.switchbru-ui .postHeader{gap:13px}
+html.switchbru-ui .avatar{width:58px;height:58px}
+html.switchbru-ui .postText{font-size:18px;line-height:1.55}
+html.switchbru-ui .postActions{margin-top:14px}
+html.switchbru-ui .yeahButton,html.switchbru-ui .postButton{min-height:46px;padding:9px 19px;border:1px solid #b8c3ca;border-radius:7px;background:linear-gradient(#fff,#e9eef2);color:#3f484e;font-size:16px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+html.switchbru-ui .yeahButton.yeahed{border-color:#43afe0;background:linear-gradient(#eefaff,#d2effd);color:#167ba9}
+html.switchbru-ui .modalCard,html.switchbru-ui .drawCard{border:1px solid #bbc5cc;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.22)}
+@media(max-width:850px){html.switchbru-ui .feed{width:calc(100% - 32px)}html.switchbru-ui .communityList{grid-template-columns:1fr}html.switchbru-ui .sidebar{padding-left:10px;padding-right:10px}html.switchbru-ui nav{gap:8px}html.switchbru-ui .nav{width:42vw}}
