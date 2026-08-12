@@ -1,138 +1,50 @@
 (() => {
   let drawingData = null;
-  let warningsMode = false;
-  let lastNewestPostId = 0;
   let firstPostLoad = true;
   const $ = s => document.querySelector(s);
-  const esc = v => String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+  const esc = v => String(v ?? "").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
   const getUser = () => { try { return JSON.parse(localStorage.getItem("miiverseUser") || "null"); } catch { return null; } };
-  const formatDate = v => { try { return new Date(v.replace(" ", "T") + "Z").toLocaleString(); } catch { return v; } };
+  const avatar = url => url || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='100%25' height='100%25' fill='%23ddd'/%3E%3Ccircle cx='40' cy='32' r='16' fill='%23999'/%3E%3Ccircle cx='40' cy='76' r='25' fill='%23999'/%3E%3C/svg%3E";
+  const date = v => { try { return new Date(String(v).replace(" ","T")+"Z").toLocaleString(); } catch { return v; } };
 
-  function postHTML(post) {
-    return `
-      <article class="post" data-post-id="${post.id}">
-        <div class="postHeader"><img class="avatar" src="${esc(post.avatar || "")}" alt=""><div><b>${esc(post.name)}</b><div class="postDate">${formatDate(post.created_at)}</div></div></div>
-        ${post.text ? `<div class="postText">${esc(post.text).replace(/\n/g,"<br>")}</div>` : ""}
-        ${post.image ? `<img class="postImage" src="${esc(post.image)}" alt="Post image">` : ""}
-        <div class="postActions"><button class="yeahButton ${post.yeahed ? "yeahed" : ""}" data-id="${post.id}" type="button">${post.yeahed ? "Unyeah" : "Yeah"} <span class="yeahCount">${Number(post.yeahs || 0)}</span></button></div>
-      </article>`;
-  }
+  function postHTML(p){return `<article class="post" data-post-id="${Number(p.id)}">
+    <div class="postHeader"><img class="avatar" src="${esc(avatar(p.avatar))}" alt=""><div><b>${esc(p.name)}</b><div class="postDate">${esc(date(p.created_at))}</div></div></div>
+    ${p.text?`<div class="postText">${esc(p.text).replace(/\n/g,"<br>")}</div>`:""}
+    ${p.image?`<img class="postImage" src="${esc(p.image)}" alt="Post image">`:""}
+    <div class="postActions"><button class="yeahButton ${Number(p.yeahed)===1?"yeahActive":""}" data-id="${Number(p.id)}" type="button">${Number(p.yeahed)===1?"Unyeah":"Yeah"} <span class="yeahCount">${Number(p.yeahs||0)}</span></button><button class="postButton replyToggle" data-id="${Number(p.id)}" type="button">💬 Reply</button></div>
+    <div class="replyBox" data-replies-for="${Number(p.id)}" hidden><div class="replyList"></div><form class="replyForm" data-id="${Number(p.id)}"><input class="replyInput" maxlength="500" placeholder="Write a reply..." required><button class="postButton" type="submit">Reply</button></form></div>
+  </article>`;}
 
-  window.loadPosts = async function loadPosts(options = {}) {
-    const feed = $("#feed"); if (!feed) return;
-    const u = getUser();
-    try {
-      const r = await fetch(`/api/posts?userId=${u ? encodeURIComponent(u.id) : 0}`, { cache: "no-store" });
-      if (!r.ok) { let d={}; try { d=await r.json(); } catch {} throw Error(d.error || `Could not load posts (HTTP ${r.status}).`); }
-      const posts = await r.json();
-      if (!posts.length) {
-        if (firstPostLoad) feed.innerHTML='<div class="post"><div class="postText">No posts yet. Be the first to post!</div></div>';
-        firstPostLoad = false;
-        return;
-      }
+  async function loadReplies(postId,box){try{const r=await fetch(`/api/posts/${postId}/replies`,{cache:"no-store"});const data=await r.json();if(!r.ok)throw Error(data.error||"Could not load replies.");const list=box.querySelector(".replyList");list.innerHTML=data.length?data.map(x=>`<div class="replyItem"><img class="replyAvatar" src="${esc(avatar(x.avatar))}" alt=""><div class="replyContent"><div class="replyMeta"><b>${esc(x.name)}</b> · ${esc(date(x.created_at))}</div>${esc(x.text).replace(/\n/g,"<br>")}</div></div>`).join(""):"<div class=\"postDate\">No replies yet.</div>";}catch(e){box.querySelector(".replyList").innerHTML=`<div class="error">${esc(e.message)}</div>`;}}
 
-      const newestId = Number(posts[0].id || 0);
-      const isInitial = firstPostLoad;
-      if (isInitial || options.replace) {
-        feed.innerHTML = posts.map(postHTML).join("");
-        firstPostLoad = false;
-      } else {
-        const existingIds = new Set([...feed.querySelectorAll("[data-post-id]")].map(el => Number(el.dataset.postId)));
-        const newPosts = posts.filter(post => !existingIds.has(Number(post.id)));
-        if (newPosts.length) {
-          const empty = feed.querySelector(".postText")?.textContent === "No posts yet. Be the first to post!";
-          if (empty) feed.innerHTML = "";
-          const fragment = document.createDocumentFragment();
-          const wrapper = document.createElement("div");
-          wrapper.innerHTML = newPosts.map(postHTML).join("");
-          [...wrapper.children].reverse().forEach(post => fragment.appendChild(post));
-          feed.prepend(fragment);
-          showNewPostsNotice(newPosts.length);
-        }
-      }
-      lastNewestPostId = Math.max(lastNewestPostId, newestId);
-    } catch (error) {
-      console.error(error);
-      if (firstPostLoad) feed.innerHTML=`<div class="post"><div class="postText error">Could not load posts: ${esc(error.message)}</div></div>`;
-    }
-  };
+  window.loadPosts = async function(options={}){const feed=$("#feed");if(!feed)return;const u=getUser();try{const r=await fetch(`/api/posts?userId=${u?encodeURIComponent(u.id):0}`,{cache:"no-store"});const posts=await r.json();if(!r.ok)throw Error(posts.error||"Could not load posts.");if(!posts.length){if(firstPostLoad)feed.innerHTML='<div class="post"><div class="postText">No posts yet. Be the first to post!</div></div>';firstPostLoad=false;return;}feed.innerHTML=posts.map(postHTML).join("");firstPostLoad=false;}catch(e){console.error(e);if(firstPostLoad)feed.innerHTML=`<div class="post"><div class="error">${esc(e.message)}</div></div>`;}};
 
-  function showNewPostsNotice(count) {
-    let notice = document.getElementById("newPostsNotice");
-    if (!notice) {
-      notice = document.createElement("button");
-      notice.id = "newPostsNotice";
-      notice.type = "button";
-      notice.textContent = "New posts";
-      Object.assign(notice.style, {position:"fixed",top:"70px",left:"50%",transform:"translateX(-50%)",zIndex:"80",border:"1px solid #aaa",background:"#fff",color:"#444",borderRadius:"20px",padding:"9px 16px",fontWeight:"bold",cursor:"pointer",boxShadow:"0 2px 10px rgba(0,0,0,.15)"});
-      document.body.appendChild(notice);
-      notice.addEventListener("click", () => { notice.remove(); window.scrollTo({top:0, behavior:"smooth"}); });
-    }
-    notice.textContent = `${count} new post${count === 1 ? "" : "s"}`;
-    clearTimeout(notice._timer);
-    notice._timer = setTimeout(() => notice.remove(), 5000);
-  }
-
-  const feed = $("#feed");
-  if (feed) feed.addEventListener("click", async e => {
-    const button = e.target.closest(".yeahButton"); if (!button) return;
-    const u = getUser(); if (!u) return;
-    if (button.disabled) return;
-    button.disabled = true;
-    try {
-      const r = await fetch(`/api/posts/${encodeURIComponent(button.dataset.id)}/yeah`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({userId:u.id}) });
-      let d={}; try { d=await r.json(); } catch {}
-      if (!r.ok) throw Error(d.error || `Could not Yeah this post (HTTP ${r.status}).`);
-      await loadPosts({replace:true});
-    } catch (error) {
-      console.error("Yeah failed:", error);
-      alert(error.message);
-      button.disabled = false;
-    }
+  const feed=$("#feed");
+  if(feed)feed.addEventListener("click",async e=>{
+    const yeah=e.target.closest(".yeahButton");
+    if(yeah){const u=getUser();if(!u||yeah.disabled)return;yeah.disabled=true;try{const r=await fetch(`/api/posts/${encodeURIComponent(yeah.dataset.id)}/yeah`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:u.id})});const d=await r.json();if(!r.ok)throw Error(d.error||"Could not change Yeah status.");await window.loadPosts({replace:true});await loadNotifications(false);}catch(err){alert(err.message);yeah.disabled=false;}return;}
+    const toggle=e.target.closest(".replyToggle");if(toggle){const box=feed.querySelector(`[data-replies-for="${CSS.escape(toggle.dataset.id)}"]`);if(!box)return;box.hidden=!box.hidden;if(!box.hidden)await loadReplies(toggle.dataset.id,box);}
   });
+  if(feed)feed.addEventListener("submit",async e=>{const form=e.target.closest(".replyForm");if(!form)return;e.preventDefault();const u=getUser();if(!u)return;const input=form.querySelector(".replyInput"),text=input.value.trim();if(!text)return;const button=form.querySelector("button");button.disabled=true;try{const r=await fetch(`/api/posts/${encodeURIComponent(form.dataset.id)}/replies`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:u.id,text})});const d=await r.json();if(!r.ok)throw Error(d.error||"Could not create reply.");input.value="";await loadReplies(form.dataset.id,form.closest(".replyBox"));await loadNotifications(false);}catch(err){alert(err.message);}finally{button.disabled=false;}});
 
-  // Check for new posts automatically. This means phones, tablets, and PCs
-  // see posts from other devices without manually refreshing the page.
-  setInterval(() => {
-    if (document.visibilityState === "visible") loadPosts();
-  }, 1500);
+  async function loadNotifications(showModal=false){const u=getUser(),badge=$("#notificationBadge");if(!u||!badge)return;try{const r=await fetch(`/api/notifications?userId=${encodeURIComponent(u.id)}`,{cache:"no-store"});const d=await r.json();if(!r.ok)throw Error(d.error||"Could not load notifications.");const unread=Number(d.unread||0);badge.textContent=unread>99?"99+":String(unread);badge.classList.toggle("visible",unread>0);if(showModal){const list=$("#notificationsList");list.innerHTML=d.notifications.length?d.notifications.map(n=>`<div class="notificationItem ${Number(n.read)===0?"unread":""}" data-notification-id="${Number(n.id)}" data-post-id="${n.post_id||""}"><img class="notificationAvatar" src="${esc(avatar(n.actor_avatar))}" alt=""><div class="notificationBody"><div class="notificationMessage">${esc(n.message)}</div><div class="notificationDate">${esc(date(n.created_at))}</div></div></div>`).join(""):"<div class=\"notificationEmpty\">You're all caught up!</div>";$("#notificationsModal").hidden=false;}}catch(e){console.error("Notifications:",e);}}
 
-  async function loadUserStats() {
-    const u=getUser(), stats=$("#profileStats"); if(!u||!stats)return;
-    try {
-      const r=await fetch(`/api/posts?userId=${u.id}`, {cache:"no-store"}); if(!r.ok)throw Error("Could not load profile statistics.");
-      const posts=await r.json();
-      const mine=posts.filter(p=>Number(p.user_id)===Number(u.id));
-      const received=mine.reduce((n,p)=>n+Number(p.yeahs||0),0);
-      const given=posts.reduce((n,p)=>n+(Number(p.yeahed)===1?1:0),0);
-      stats.innerHTML=`<div class="stat"><strong>${mine.length}</strong><span>Posts made</span></div><div class="stat"><strong>${received}</strong><span>Yeahs received</span></div><div class="stat"><strong>${given}</strong><span>Yeahs given</span></div>`;
-    } catch(e) { console.error(e); }
-  }
-  const userMenuNav=$("#userMenuNav");
-  if(userMenuNav) userMenuNav.addEventListener("click",()=>setTimeout(loadUserStats,50));
+  const nb=$("#notificationsButton");if(nb)nb.addEventListener("click",()=>loadNotifications(true));
+  const closeN=$("#closeNotifications");if(closeN)closeN.addEventListener("click",()=>$("#notificationsModal").hidden=true);
+  const mark=$("#markNotificationsRead");if(mark)mark.addEventListener("click",async()=>{const u=getUser();if(!u)return;await fetch("/api/notifications/read",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:u.id})});await loadNotifications(true);});
+  const nl=$("#notificationsList");if(nl)nl.addEventListener("click",async e=>{const item=e.target.closest(".notificationItem");if(!item)return;const u=getUser();if(!u)return;await fetch("/api/notifications/read",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:u.id,id:Number(item.dataset.notificationId)})});const postId=item.dataset.postId;if(postId){$("#notificationsModal").hidden=true;$("#communitiesNav")?.click();setTimeout(()=>{const post=document.querySelector(`[data-post-id="${CSS.escape(postId)}"]`);if(post){post.scrollIntoView({behavior:"smooth",block:"center"});const toggle=post.querySelector(".replyToggle");if(toggle)toggle.click();}},150);}});
 
-  const warningsTab=$("#warningsTab"), profileTab=$("#profileTab"), profile=$("#userProfile"), warnings=$("#warningsView");
-  async function renderWarnings() {
-    const u=getUser(); if(!u||!warnings)return;
-    profile.hidden=true; warnings.hidden=false; profileTab.classList.remove("active"); warningsTab.classList.add("active");
-    try {
-      const r=await fetch(`/api/users/${u.id}/warnings?requesterId=${u.id}`), data=await r.json();
-      if(!r.ok)throw Error(data.error||"Could not load warnings.");
-      warnings.innerHTML=`<div class="profileHero"><h2>Warnings</h2><p>You have ${data.length} warning${data.length===1?"":"s"}.</p></div>${data.length?`<div class="warningList">${data.map(w=>`<div class="warningCard"><div class="warningTop"><strong>Warning #${w.id}</strong><span>${formatDate(w.created_at)}</span></div><div>${esc(w.reason)}</div><small>Issued by ${esc(w.admin_name)}</small></div>`).join("")}</div>`:'<div class="post"><div class="postText">You have no warnings.</div></div>'}`;
-    } catch(e) { warnings.innerHTML=`<p class="error">${esc(e.message)}</p>`; }
-  }
-  if(warningsTab&&profileTab&&profile&&warnings){warningsTab.addEventListener("click",()=>{warningsMode=true;renderWarnings();});profileTab.addEventListener("click",()=>{warningsMode=false;profile.hidden=false;warnings.hidden=true;profileTab.classList.add("active");warningsTab.classList.remove("active");loadUserStats();});}
+  // Poll so a phone, tablet, PC, or another browser window receives new notifications without refreshing.
+  setInterval(()=>{if(document.visibilityState==="visible")loadNotifications(false);},3000);
+  loadNotifications(false);
 
-  const drawButton=$("#drawButton"), drawModal=$("#drawModal"), canvas=$("#drawCanvas");
-  if(drawButton&&drawModal&&canvas){
-    const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.lineCap="round";ctx.lineJoin="round";let drawing=false;
-    const point=e=>{const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height};};
-    canvas.addEventListener("pointerdown",e=>{drawing=true;canvas.setPointerCapture(e.pointerId);const p=point(e);ctx.beginPath();ctx.moveTo(p.x,p.y);});
-    canvas.addEventListener("pointermove",e=>{if(!drawing)return;const p=point(e);ctx.lineWidth=Number($("#brushSize").value);ctx.strokeStyle="#222";ctx.lineTo(p.x,p.y);ctx.stroke();});
-    canvas.addEventListener("pointerup",()=>drawing=false);canvas.addEventListener("pointercancel",()=>drawing=false);
-    drawButton.addEventListener("click",()=>drawModal.hidden=false);$("#closeDraw").addEventListener("click",()=>drawModal.hidden=true);
-    $("#clearDrawing").addEventListener("click",()=>{ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);});
-    $("#saveDrawing").addEventListener("click",()=>{drawingData=canvas.toDataURL("image/png");const preview=$("#drawingPreview");preview.innerHTML=`<img src="${drawingData}" alt="Drawing preview"><button id="removeDrawing" class="postButton" type="button">Remove Drawing</button>`;preview.hidden=false;$("#removeDrawing").onclick=()=>{drawingData=null;preview.hidden=true;preview.innerHTML="";};drawModal.hidden=true;});
-    $("#postForm").addEventListener("submit",async e=>{if(!drawingData)return;e.preventDefault();const u=getUser();if(!u)return;const fd=new FormData();fd.append("userId",u.id);fd.append("text",$("#postText").value.trim());const blob=await(await fetch(drawingData)).blob();fd.append("image",blob,"greenverse-drawing.png");const r=await fetch("/api/posts",{method:"POST",body:fd}),d=await r.json();if(!r.ok){alert(d.error||"Could not create post.");return;}$("#postText").value="";drawingData=null;$("#drawingPreview").hidden=true;$("#drawingPreview").innerHTML="";$("#counter").textContent="0 / 500";await loadPosts({replace:true});},true);
-  }
+  async function loadUserStats(){const u=getUser(),stats=$("#profileStats");if(!u||!stats)return;try{const r=await fetch(`/api/posts?userId=${u.id}`,{cache:"no-store"}),posts=await r.json();const mine=posts.filter(p=>Number(p.user_id)===Number(u.id));const received=mine.reduce((n,p)=>n+Number(p.yeahs||0),0);const given=posts.reduce((n,p)=>n+(Number(p.yeahed)===1?1:0),0);stats.innerHTML=`<div class="stat"><strong>${mine.length}</strong><span>Posts made</span></div><div class="stat"><strong>${received}</strong><span>Yeahs received</span></div><div class="stat"><strong>${given}</strong><span>Yeahs given</span></div>`;}catch(e){console.error(e);}}
+  $("#userMenuNav")?.addEventListener("click",()=>setTimeout(loadUserStats,50));
+
+  const warningsTab=$("#warningsTab"),profileTab=$("#profileTab"),profile=$("#userProfile"),warnings=$("#warningsView");
+  async function renderWarnings(){const u=getUser();if(!u||!warnings)return;profile.hidden=true;warnings.hidden=false;profileTab.classList.remove("active");warningsTab.classList.add("active");try{const r=await fetch(`/api/users/${u.id}/warnings?requesterId=${u.id}`),data=await r.json();if(!r.ok)throw Error(data.error||"Could not load warnings.");warnings.innerHTML=`<div class="profileHero"><h2>Warnings</h2><p>You have ${data.length} warning${data.length===1?"":"s"}.</p></div>${data.length?`<div class="warningList">${data.map(w=>`<div class="warningCard"><div class="warningTop"><strong>Warning #${w.id}</strong><span>${esc(date(w.created_at))}</span></div><div>${esc(w.reason)}</div><small>Issued by ${esc(w.admin_name)}</small></div>`).join("")}</div>`:'<div class="post"><div class="postText">You have no warnings.</div></div>'}`;}catch(e){warnings.innerHTML=`<p class="error">${esc(e.message)}</p>`;}}
+  if(warningsTab&&profileTab){warningsTab.addEventListener("click",renderWarnings);profileTab.addEventListener("click",()=>{profile.hidden=false;warnings.hidden=true;profileTab.classList.add("active");warningsTab.classList.remove("active");loadUserStats();});}
+
+  const drawButton=$("#drawButton"),drawModal=$("#drawModal"),canvas=$("#drawCanvas");
+  if(drawButton&&drawModal&&canvas){const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.lineCap="round";ctx.lineJoin="round";let drawing=false;const point=e=>{const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height};};canvas.addEventListener("pointerdown",e=>{drawing=true;canvas.setPointerCapture(e.pointerId);const p=point(e);ctx.beginPath();ctx.moveTo(p.x,p.y);});canvas.addEventListener("pointermove",e=>{if(!drawing)return;const p=point(e);ctx.lineWidth=Number($("#brushSize").value);ctx.strokeStyle="#222";ctx.lineTo(p.x,p.y);ctx.stroke();});canvas.addEventListener("pointerup",()=>drawing=false);canvas.addEventListener("pointercancel",()=>drawing=false);drawButton.addEventListener("click",()=>drawModal.hidden=false);$("#closeDraw").addEventListener("click",()=>drawModal.hidden=true);$("#clearDrawing").addEventListener("click",()=>{ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);});$("#saveDrawing").addEventListener("click",()=>{drawingData=canvas.toDataURL("image/png");const preview=$("#drawingPreview");preview.innerHTML=`<img src="${drawingData}" alt="Drawing preview"><button id="removeDrawing" class="postButton" type="button">Remove Drawing</button>`;preview.hidden=false;$("#removeDrawing").onclick=()=>{drawingData=null;preview.hidden=true;preview.innerHTML="";};drawModal.hidden=true;});$("#postForm").addEventListener("submit",async e=>{if(!drawingData)return;e.preventDefault();const u=getUser();if(!u)return;const fd=new FormData();fd.append("userId",u.id);fd.append("text",$("#postText").value.trim());const blob=await(await fetch(drawingData)).blob();fd.append("image",blob,"greenverse-drawing.png");const r=await fetch("/api/posts",{method:"POST",body:fd}),d=await r.json();if(!r.ok){alert(d.error||"Could not create post.");return;}$("#postText").value="";drawingData=null;$("#drawingPreview").hidden=true;$("#drawingPreview").innerHTML="";$("#counter").textContent="0 / 500";await window.loadPosts({replace:true});},true);}
 })();
