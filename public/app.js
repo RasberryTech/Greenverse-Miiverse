@@ -36,6 +36,11 @@ function getAvatar(url) {
   return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='100%25' height='100%25' fill='%23ddd'/%3E%3Ccircle cx='40' cy='32' r='16' fill='%23999'/%3E%3Ccircle cx='40' cy='76' r='25' fill='%23999'/%3E%3C/svg%3E";
 }
 
+function formatDate(value) {
+  try { return new Date(String(value).replace(" ", "T") + "Z").toLocaleString(); }
+  catch { return value; }
+}
+
 async function getResponseError(response, fallback) {
   const contentType = response.headers.get("content-type") || "";
   try {
@@ -47,6 +52,42 @@ async function getResponseError(response, fallback) {
     return text || `${fallback} (HTTP ${response.status})`;
   } catch {
     return `${fallback} (HTTP ${response.status})`;
+  }
+}
+
+// Load the feed from the same Render server. This function is intentionally
+// global because the post composer and other Greenverse scripts call it.
+async function loadPosts() {
+  if (!feed) return;
+  try {
+    const userId = currentUser ? currentUser.id : 0;
+    const response = await fetch(`/api/posts?userId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(await getResponseError(response, "Could not load posts."));
+    const posts = await response.json();
+
+    if (!Array.isArray(posts) || posts.length === 0) {
+      feed.innerHTML = '<div class="post"><div class="postText">No posts yet. Be the first to post!</div></div>';
+      return;
+    }
+
+    feed.innerHTML = posts.map(post => {
+      const avatar = getAvatar(post.avatar);
+      const image = post.image ? `<img class="postImage" src="${escapeHtml(post.image)}" alt="Post image" loading="lazy">` : "";
+      const yeahs = Number(post.yeahs || 0);
+      const yeahed = Number(post.yeahed || 0) === 1;
+      return `<article class="post">
+        <div class="postHeader">
+          <img class="avatar" src="${avatar}" alt="">
+          <div><strong>${escapeHtml(post.name)}</strong><div class="postDate">${escapeHtml(formatDate(post.created_at))}</div></div>
+        </div>
+        ${post.text ? `<div class="postText">${escapeHtml(post.text).replace(/\n/g, "<br>")}</div>` : ""}
+        ${image}
+        <div class="postActions"><button class="yeahButton${yeahed ? " active" : ""}" type="button" data-id="${Number(post.id)}">Yeah <span>${yeahs}</span></button></div>
+      </article>`;
+    }).join("");
+  } catch (error) {
+    console.error("Could not load Greenverse posts:", error);
+    feed.innerHTML = `<div class="post"><div class="error">${escapeHtml(error.message || "Could not load posts.")}</div></div>`;
   }
 }
 
@@ -175,7 +216,6 @@ userForm.addEventListener("submit", async event => {
   } catch (error) { console.error(error); errorElement.textContent = "Could not connect to the server."; }
 });
 
-// /api/posts uses multer, so send FormData rather than JSON.
 postForm.addEventListener("submit", async event => {
   event.preventDefault();
   if (!currentUser) return renderUser();
@@ -186,25 +226,16 @@ postForm.addEventListener("submit", async event => {
     const form = new FormData();
     form.append("userId", String(currentUser.id));
     form.append("text", text);
-
-    // If the post form has an image/file input, include it when selected.
-    const imageInput = postForm.querySelector('input[type="file"]');
-    if (imageInput && imageInput.files && imageInput.files[0]) {
-      form.append("image", imageInput.files[0]);
-    }
-
     const response = await fetch("/api/posts", { method: "POST", body: form });
     if (!response.ok) {
       const message = await getResponseError(response, "Could not create post.");
       console.error("Greenverse post request failed:", response.status, message);
       return alert(message);
     }
-
     const data = await response.json();
     if (!data.id) return alert("The server did not confirm the post was created.");
     postText.value = "";
     counter.textContent = "0 / 500";
-    if (imageInput) imageInput.value = "";
     await loadPosts();
   } catch (error) {
     console.error("Greenverse post request failed:", error);
